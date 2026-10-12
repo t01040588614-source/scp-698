@@ -21,6 +21,10 @@
 # Integration keys (use .example)
 stock-backend/data/integration_keys.json
 
+# Local SQLite (use Postgres in production)
+stock-backend/stock.db
+**/*.db
+
 # Logs & OS
 **/*.log
 .DS_Store
