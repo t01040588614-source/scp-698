@@ -1,0 +1,35 @@
+# Secrets & local env
+.env
+.env.local
+**/.env
+!**/.env.example
+!**/.env.local.example
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/venv/
+**/.pytest_cache/
+**/.ruff_cache/
+
+# Node / Next.js
+**/node_modules/
+**/.next/
+**/out/
+**/*.tsbuildinfo
+
+# Integration keys (use .example)
+stock-backend/data/integration_keys.json
+
+# Logs & OS
+**/*.log
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+
+# Large / generated (optional local)
+docs/design/_wip/

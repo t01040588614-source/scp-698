@@ -1,0 +1,390 @@
+/* Investing.com 스타일 차트 — 툴바 · OHLC · 캔들 · 하단 레인지 */
+
+.inv-investing-chart {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.inv-investing-chart-page-title {
+  margin: 0;
+  padding: 8px var(--space-4);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.inv-investing-chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.inv-chart-intraday {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.inv-chart-intraday-btn {
+  min-width: 28px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.inv-chart-intraday-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface);
+}
+
+.inv-chart-intraday-btn.is-active {
+  color: var(--primary);
+  border-color: var(--border-color);
+  background: var(--primary-light);
+}
+
+.inv-chart-events-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.inv-chart-events-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inv-chart-events-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--primary);
+  background: var(--primary-light);
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+}
+
+.inv-chart-events-badge--e {
+  color: var(--text-secondary);
+  background: var(--surface-muted);
+  border-color: var(--border-color);
+}
+
+.inv-investing-chart-toolbar-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.inv-investing-chart-symbol {
+  flex-shrink: 0;
+  min-width: 36px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-primary);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+}
+
+.inv-investing-chart-intervals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.inv-investing-chart-interval {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+.inv-investing-chart-interval:hover {
+  color: var(--text-primary);
+  background: var(--surface);
+}
+
+.inv-investing-chart-interval.is-active {
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+.inv-investing-chart-toolbar-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.inv-investing-chart-type,
+.inv-investing-chart-icon-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+.inv-investing-chart-type.is-active {
+  color: var(--primary);
+  border-color: var(--border-color);
+  background: var(--surface);
+}
+
+.inv-investing-chart-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.inv-investing-chart-stage {
+  position: relative;
+  background: var(--surface);
+  flex-shrink: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.inv-investing-chart-canvas {
+  width: 100%;
+  min-width: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.inv-investing-chart--compact .inv-investing-chart-stage,
+.inv-investing-chart--compact .inv-investing-chart-canvas {
+  max-height: var(--inv-chart-stage-height, var(--chart-height-sidebar));
+}
+
+.inv-investing-chart--stream .inv-investing-chart-stage {
+  background: var(--surface-inset);
+}
+
+.inv-investing-chart-legend {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+  max-width: calc(100% - 80px);
+  pointer-events: none;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.inv-investing-chart-legend-title {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.inv-investing-chart-legend--compact {
+  top: 4px;
+  left: 8px;
+  gap: 4px 10px;
+  max-width: calc(100% - 64px);
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.inv-investing-chart--compact .inv-investing-chart-stage {
+  padding-top: 2px;
+}
+
+.inv-investing-chart--compact .inv-investing-chart-canvas {
+  margin-top: 28px;
+}
+
+.inv-investing-chart-ohlc {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.inv-investing-chart-ohlc em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--market-up);
+  font-variant-numeric: tabular-nums;
+}
+
+.inv-investing-chart--equity-hub .inv-investing-chart-canvas,
+.inv-investing-chart--equity-page .inv-investing-chart-canvas {
+  background: transparent;
+}
+
+.inv-investing-chart-watermark {
+  position: absolute;
+  left: 12px;
+  bottom: 28%;
+  z-index: 1;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-disabled);
+  opacity: 0.28;
+  pointer-events: none;
+  user-select: none;
+}
+
+.inv-investing-chart-loading,
+.inv-investing-chart-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--overlay);
+}
+
+.inv-investing-chart-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border-top: 1px solid var(--border-color);
+}
+
+.inv-investing-chart-footer--minimal {
+  justify-content: space-between;
+  padding: 4px 12px;
+}
+
+.inv-investing-chart-footer-hint {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-disabled);
+}
+
+.inv-investing-chart-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.inv-investing-chart-range {
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.inv-investing-chart-range.is-active,
+.inv-investing-chart-range:hover {
+  color: var(--primary);
+}
+
+.inv-investing-chart-clock {
+  font-weight: 600;
+}
+
+.inv-investing-chart-scale {
+  display: flex;
+  gap: 4px;
+}
+
+.inv-investing-chart-scale-btn {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+.inv-investing-chart-scale-btn.is-active {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-muted);
+}
+
+.inv-investing-chart-scale-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.inv-investing-chart--compact .inv-investing-chart-toolbar {
+  padding: 4px 8px;
+}
+
+.inv-investing-chart--compact .inv-investing-chart-interval {
+  padding: 3px 6px;
+  font-size: 10px;
+}
+
+.inv-investing-chart--compact .inv-investing-chart-footer {
+  font-size: 10px;
+}
+
+.inv-investing-chart--compact .inv-investing-chart-watermark {
+  font-size: 16px;
+  bottom: 22px;
+}
+
+.inv-sidebar-indices--live .inv-investing-chart {
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+[data-theme="dark"] .inv-investing-chart-toolbar,
+[data-theme="dark"] .inv-investing-chart-footer {
+  background: var(--surface-muted);
+}
+
+[data-theme="dark"] .inv-investing-chart-symbol {
+  background: var(--surface-inset);
+}

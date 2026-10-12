@@ -1,0 +1,48 @@
+/** 백엔드 intl_logo_map.py 와 동기 — FMP/Yahoo 로고 티커 */
+export const INTL_YAHOO_BY_SYMBOL: Record<string, string> = {
+  "7203": "7203.T",
+  "6758": "6758.T",
+  "9984": "9984.T",
+  "6861": "6861.T",
+  "8306": "8306.T",
+  "9432": "9432.T",
+  "8035": "8035.T",
+  "6098": "6098.T",
+  "4063": "4063.T",
+  "4519": "4519.T",
+  "2330": "2330.TW",
+  "2317": "2317.TW",
+  "2454": "2454.TW",
+  "0700": "0700.HK",
+  "9988": "9988.HK",
+  "3690": "3690.HK",
+  "1810": "1810.HK",
+  "1299": "1299.HK",
+  D05: "D05.SI",
+  O39: "O39.SI",
+  SAP: "SAP.DE",
+  SIE: "SIE.DE",
+  ALV: "ALV.DE",
+  BAS: "BAS.DE",
+  MBG: "MBG.DE",
+  ASML: "ASML.AS",
+  MC: "MC.PA",
+  OR: "OR.PA",
+  SAN: "SAN.PA",
+  TTE: "TTE.PA",
+  SHEL: "SHEL.L",
+  AZN: "AZN.L",
+  HSBA: "HSBA.L",
+  ULVR: "ULVR.L",
+  RIO: "RIO.L",
+  NESN: "NESN.SW",
+  NOVN: "NOVN.SW",
+  ROG: "ROG.SW",
+  "VOLV-B": "VOLV-B.ST",
+  "ERIC-B": "ERIC-B.ST",
+};
+
+export function intlYahooLogoTicker(symbol: string): string | null {
+  const sym = symbol.trim().toUpperCase();
+  return INTL_YAHOO_BY_SYMBOL[sym] ?? null;
+}

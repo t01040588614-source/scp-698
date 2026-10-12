@@ -1,0 +1,443 @@
+/* Investing.com 시장 개요 — 지역 네비 · 히어로 카드 · 지수/종목 표 */
+
+.inv-markets-hub {
+  width: 100%;
+}
+
+.inv-markets-hub-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.inv-region-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.inv-region-nav-item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.inv-region-nav-item:hover {
+  color: var(--text-primary);
+  background: var(--surface-muted);
+}
+
+.inv-region-nav-item.is-active {
+  color: var(--primary);
+  background: var(--primary-muted);
+  border-color: rgb(37 99 235 / 25%);
+}
+
+.inv-region-nav-hint {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.inv-region-nav-item.is-active .inv-region-nav-hint {
+  color: var(--primary);
+  opacity: 0.85;
+}
+
+.inv-hub-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.inv-hub-meta-text {
+  font-weight: 600;
+}
+
+.inv-hub-main {
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+/* ─── 히어로 지수 카드 (6열 · 스파크라인) ─── */
+.inv-hero-index-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
+  margin-bottom: var(--space-4);
+  background: var(--border-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+@media (max-width: 1280px) {
+  .inv-hero-index-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .inv-hero-index-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.inv-hero-index-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 118px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  transition: background 0.15s;
+}
+
+.inv-hero-index-card:hover {
+  background: var(--surface-muted);
+}
+
+.inv-hero-index-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-bottom: 6px;
+}
+
+.inv-hero-index-flag {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.inv-hero-index-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inv-hero-index-name:hover {
+  text-decoration: underline;
+}
+
+.inv-hero-index-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+  gap: var(--space-2);
+}
+
+.inv-hero-index-price {
+  display: block;
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.inv-hero-index-chg {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.inv-hero-index-pct {
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  background: var(--ticker-pct-neutral-bg);
+}
+
+.inv-hero-index-chg.price-up .inv-hero-index-pct {
+  background: var(--market-up-bg);
+}
+
+.inv-hero-index-chg.price-down .inv-hero-index-pct {
+  background: var(--market-down-bg);
+}
+
+.inv-mini-sparkline {
+  display: block;
+  flex-shrink: 0;
+  width: var(--chart-mini-spark-w);
+  height: var(--chart-mini-spark-h);
+  max-width: var(--chart-mini-spark-w);
+  margin-top: auto;
+  align-self: flex-end;
+  opacity: 0.95;
+}
+
+/* ─── 콘텐츠 탭 (개요 · 지수 · 종목 …) ─── */
+.inv-hub-content-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-bottom: var(--space-4);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.inv-hub-content-tab {
+  position: relative;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.inv-hub-content-tab:hover {
+  color: var(--text-primary);
+}
+
+.inv-hub-content-tab.is-active {
+  color: var(--text-primary);
+}
+
+.inv-hub-content-tab.is-active::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -2px;
+  left: 0;
+  height: 2px;
+  background: var(--text-primary);
+}
+
+[data-theme="dark"] .inv-hub-content-tab.is-active::after {
+  background: var(--primary);
+}
+
+.inv-hub-indices-widget {
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.inv-hub-indices-notice {
+  margin: 0 0 var(--space-3);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border-radius: var(--radius-xs);
+}
+
+/* ─── 섹션 표 ─── */
+.inv-hub-table-section {
+  margin-bottom: var(--space-5);
+}
+
+.inv-hub-section-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.inv-hub-breadth-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: min(100%, 320px);
+  flex: 1 1 280px;
+}
+
+.inv-hub-breadth-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.inv-hub-breadth-bar {
+  flex: 1 1 120px;
+  max-width: 200px;
+}
+
+.inv-hub-breadth-counts {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.inv-hub-section-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+/* 제목만 있는 섹션(종목 표 등) — head-row 없을 때 구분선 */
+.inv-hub-table-section > .inv-hub-section-title {
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.inv-hub-indices-table .inv-col-summary {
+  min-width: 120px;
+  width: 18%;
+}
+
+.inv-hub-indices-table tbody tr.is-index-highlight {
+  background: var(--primary-muted);
+  outline: 1px solid rgb(37 99 235 / 35%);
+}
+
+.inv-hub-indices-table .inv-col-num {
+  width: 56px;
+  text-align: right;
+}
+
+.inv-hub-index-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inv-hub-index-flag {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.inv-market-summary-bar {
+  display: flex;
+  height: 8px;
+  min-width: 88px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--surface-inset);
+}
+
+.inv-market-summary-seg {
+  min-width: 2px;
+  transition: flex 0.2s ease;
+}
+
+.inv-market-summary-seg--up {
+  background: var(--market-up);
+}
+
+.inv-market-summary-seg--flat {
+  background: var(--text-disabled);
+  opacity: 0.45;
+}
+
+.inv-market-summary-seg--down {
+  background: var(--market-down);
+}
+
+.inv-hub-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.inv-hub-clock {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--text-muted);
+  flex-shrink: 0;
+}
+
+.inv-hub-board-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding-top: var(--space-3);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.inv-hub-board-links a {
+  color: var(--primary);
+}
+
+.inv-hub-board-links a:hover {
+  text-decoration: underline;
+}
+
+.inv-intl-stock-label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.inv-intl-stock-exchange {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--primary);
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: var(--primary-muted);
+}
+
+.inv-intl-stock-sym {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .inv-markets-hub-top {
+  background: var(--surface);
+}
+
+[data-theme="dark"] .inv-hero-index-card {
+  background: var(--surface-elevated);
+}
+
+[data-theme="dark"] .inv-hero-index-card:hover {
+  background: var(--surface-hover);
+}
+
+[data-theme="dark"] .inv-hero-index-grid {
+  background: var(--border-color);
+  border-color: var(--border-color);
+}

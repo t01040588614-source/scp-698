@@ -1,0 +1,48 @@
+@import "../styles/variables.css";
+@import "../styles/reset.css";
+@import "../styles/layout.css";
+@import "../styles/components.css";
+@import "../styles/responsive.css";
+@import "../styles/investing.css";
+@import "../styles/investing-exact.css";
+@import "../styles/app-polish.css";
+@import "../styles/market-board.css";
+@import "../styles/layout-shell-fix.css";
+@import "../styles/layout-sticky-sides.css";
+@import "../styles/dark-theme-polish.css";
+@import "../styles/investing-markets-hub.css";
+@import "../styles/toss-markets.css";
+@import "../styles/toss-quote.css";
+@import "../styles/investing-chart.css";
+@import "../styles/investing-chart-hub.css";
+@import "../styles/investing-stream-chart.css";
+@import "../styles/investing-equity-page.css";
+@import "../styles/system-status.css";
+@import "../styles/ai-chat.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tailwind Preflight 이후 테마/레이아웃 재적용 */
+@layer base {
+  body {
+    background: var(--page-background);
+    background-image: var(--page-background-gradient);
+    background-attachment: fixed;
+    color: var(--text-primary);
+    font-family: Arial, Helvetica, "Segoe UI", "Malgun Gothic", sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  a {
+    color: inherit;
+  }
+}
+
+@layer components {
+  .panel {
+    background: var(--surface);
+  }
+}

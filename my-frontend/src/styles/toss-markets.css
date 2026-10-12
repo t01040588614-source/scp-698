@@ -1,0 +1,502 @@
+/* 토스증권 홈(시장) 스타일 — /markets */
+
+.app-main--toss {
+  padding-bottom: calc(var(--bottom-nav-height, 56px) + var(--space-4));
+}
+
+.toss-page-shell {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) 0;
+}
+
+.toss-session-header {
+  margin-bottom: var(--space-4);
+}
+
+.toss-session-header-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 14px;
+}
+
+.toss-session-badge {
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.toss-session-badge.is-open {
+  color: var(--text-primary);
+}
+
+.toss-session-detail {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.toss-markets-page .inv-page-head--band {
+  background: transparent;
+  border: 0;
+  padding-bottom: 0;
+}
+
+.toss-markets-page .inv-breadcrumb {
+  display: none;
+}
+
+.toss-markets-page .inv-page-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.toss-markets-page .inv-page-desc--compact {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.toss-markets {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 var(--space-4) var(--space-6);
+}
+
+.toss-markets-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: var(--space-4);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.toss-section-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+/* ─── 지수 목록 ─── */
+.toss-index-section {
+  margin-bottom: var(--space-5);
+}
+
+.toss-index-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.toss-index-section-link {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.toss-index-section-link:hover {
+  color: var(--primary);
+}
+
+.toss-index-scroll {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  padding: var(--space-2) 0 var(--space-3);
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.toss-index-card {
+  position: relative;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.toss-index-divider {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--border-color);
+}
+
+.toss-index-card-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 132px;
+  padding: 4px 20px 4px 16px;
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+
+.toss-index-card-inner:hover {
+  background: var(--surface-muted);
+}
+
+.toss-index-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.toss-index-price {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+
+.toss-index-chg {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ─── 메인 탭 ─── */
+.toss-main-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.toss-main-tab {
+  position: relative;
+  padding: 12px 4px;
+  margin-right: 20px;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.toss-main-tab:hover {
+  color: var(--text-primary);
+}
+
+.toss-main-tab.is-active {
+  color: var(--text-primary);
+}
+
+.toss-main-tab.is-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 1px;
+}
+
+[data-theme="dark"] .toss-main-tab.is-active::after {
+  background: var(--primary);
+}
+
+/* ─── 순위 ─── */
+.toss-rank-section {
+  min-width: 0;
+}
+
+.toss-rank-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.toss-market-segment {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--surface-inset);
+  border-radius: 10px;
+  width: fit-content;
+}
+
+.toss-market-segment-btn {
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.toss-market-segment-btn.is-active {
+  color: var(--text-primary);
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.toss-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toss-filter-chip {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.toss-filter-chip:hover {
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.toss-filter-chip.is-active {
+  color: var(--primary);
+  background: var(--primary-muted);
+  border-color: rgb(37 99 235 / 35%);
+}
+
+.toss-rank-section--spark .toss-rank-table-head,
+.toss-rank-section--spark .toss-rank-row {
+  grid-template-columns: 40px minmax(100px, 1.2fr) 72px 80px 68px 80px 80px;
+}
+
+.toss-rank-table-head {
+  display: grid;
+  grid-template-columns: 40px minmax(120px, 1.4fr) 88px 72px 88px 88px;
+  gap: 8px;
+  padding: 0 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.toss-rank-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.toss-rank-row {
+  display: grid;
+  grid-template-columns: 40px minmax(120px, 1.4fr) 88px 72px 88px 88px;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 13px;
+}
+
+.toss-rank-row:hover {
+  background: var(--surface-muted);
+}
+
+.toss-rank-col-rank {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.toss-rank-col-rank.price-up {
+  color: var(--market-up);
+}
+
+.toss-rank-col-rank.price-down {
+  color: var(--market-down);
+}
+
+.toss-rank-col-name {
+  display: flex;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.toss-rank-name-wrap {
+  min-width: 0;
+}
+
+.toss-rank-name-wrap .toss-rank-name {
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toss-rank-col-price {
+  font-weight: 800;
+  text-align: right;
+}
+
+.toss-rank-col-pct {
+  font-weight: 800;
+  text-align: right;
+}
+
+.toss-rank-col-turnover,
+.toss-rank-col-mcap {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.toss-rank-foot {
+  padding-top: var(--space-4);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.toss-rank-foot a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.toss-rank-foot a:hover {
+  text-decoration: underline;
+}
+
+.toss-rank-col-spark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.toss-rank-spark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 28px;
+}
+
+.toss-rank-spark-skeleton {
+  display: block;
+  width: 64px;
+  height: 28px;
+  border-radius: 4px;
+  background: var(--surface-inset);
+  opacity: 0.65;
+}
+
+.toss-rank-spark-svg {
+  display: block;
+}
+
+/* ─── 지수·환율 탭 ─── */
+.toss-indices-panel {
+  padding-top: var(--space-2);
+}
+
+.toss-indices-panel .inv-hub-table-section {
+  margin-bottom: 0;
+}
+
+.toss-indices-panel .inv-hub-section-title {
+  display: none;
+}
+
+.toss-quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.toss-quick-links a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.toss-quick-links a:hover {
+  color: var(--primary);
+}
+
+@media (max-width: 768px) {
+  .toss-rank-table-head {
+    display: none;
+  }
+
+  .toss-rank-row {
+    grid-template-columns: 32px 1fr auto;
+    grid-template-rows: auto auto;
+  }
+
+  .toss-rank-section--spark .toss-rank-row {
+    grid-template-columns: 32px minmax(0, 1fr) 64px auto;
+    grid-template-rows: auto auto;
+  }
+
+  .toss-rank-section--spark .toss-rank-col-spark {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .toss-rank-section--spark .toss-rank-col-price {
+    grid-column: 4;
+  }
+
+  .toss-rank-section--spark .toss-rank-col-pct {
+    grid-column: 4;
+  }
+
+  .toss-rank-col-rank {
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .toss-rank-col-name {
+    grid-column: 2;
+  }
+
+  .toss-rank-col-price {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .toss-rank-col-pct {
+    grid-column: 3;
+    grid-row: 2;
+    font-size: 12px;
+  }
+
+  .toss-rank-col-turnover,
+  .toss-rank-col-mcap {
+    display: none;
+  }
+}
+
+[data-theme="dark"] .toss-market-segment-btn.is-active {
+  background: var(--surface-elevated);
+}

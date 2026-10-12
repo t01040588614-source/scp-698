@@ -1,0 +1,109 @@
+다 추가해서 코드랑 설명좀
+아래는 지금까지 나온 모든 기능 (한국 주식 대시보드 + 스크리너 + 종목 상세 + 차트 + 뉴스 + 컨센서스 + 계좌 관리 + 매매 내역 + 평가손익 + 일별 스냅샷 + 스냅샷 차트 + 매매 내역 수정/삭제) 을 모두 포함한 완전판 코드 + 설명입니다.
+이 내용을 그대로 Cursor 나 개발자에게 주면, 프로젝트 전체를 한 번에 구현할 수 있는 수준입니다.
+0. 전체 기능 요약
+추가된 기능 포함 전체 목록:
+주식 시장 데이터
+종목 목록 + 필터/정렬 (스크리너)
+종목 상세 (시세, 재무지표)
+일봉 차트 (Lightweight Charts)
+뉴스 목록 (감정 태깅 구조)
+컨센서스 (목표주가, 의견 분포)
+사용자 스크리너
+스크리너 저장/목록/삭제
+계좌 관리
+계좌 등록/목록/상세
+계좌별 보유 종목 (평균단가, 수량, 평가금액, 평가손익, 수익률)
+매매 내역 추가/목록/수정/삭제
+매매 내역 기반 자동 포지션 계산
+일별 계좌 평가 스냅샷
+스냅샷 기반 자산 추이 차트
+기술 스택
+Next.js 14 (앱 라우터), React 18, TypeScript, Tailwind CSS
+NestJS 10, TypeORM 0.3
+PostgreSQL 16
+docker-compose
+1. 디렉터리 구조 (완전판)
+kr-stock-dashboard├─ apps│  ├─ web│  │  ├─ app│  │  │  ├─ layout.tsx│  │  │  ├─ globals.css│  │  │  ├─ page.tsx│  │  │  ├─ stocks│  │  │  │  ├─ page.tsx│  │  │  │  └─ [code]│  │  │  │     ├─ page.tsx│  │  │  │     └─ chart.tsx│  │  │  └─ accounts│  │  │     ├─ page.tsx│  │  │     ├─ [id]│  │  │     │  ├─ page.tsx│  │  │     │  └─ trades│  │  │     │     ├─ new│  │  │     │     │  └─ page.tsx│  │  │     │     └─ [tradeId]│  │  │     │        └─ edit│  │  │     │           └─ page.tsx│  │  │     └─ new│  │  │        └─ page.tsx│  │  ├─ public│  │  ├─ next.config.js│  │  ├─ tailwind.config.js│  │  ├─ postcss.config.js│  │  ├─ tsconfig.json│  │  ├─ package.json│  │  └─ Dockerfile│  └─ api│     ├─ src│     │  ├─ main.ts│     │  ├─ app.module.ts│     │  ├─ stocks│     │  │  ├─ stocks.module.ts│     │  │  ├─ stocks.controller.ts│     │  │  └─ stocks.service.ts│     │  ├─ accounts│     │  │  ├─ accounts.module.ts│     │  │  ├─ accounts.service.ts│     │  │  └─ accounts.controller.ts│     │  ├─ entities│     │  │  ├─ stock.entity.ts│     │  │  ├─ stock-quote.entity.ts│     │  │  ├─ stock-fundamental.entity.ts│     │  │  ├─ news.entity.ts│     │  │  ├─ consensus.entity.ts│     │  │  ├─ user-screener.entity.ts│     │  │  ├─ user-account.entity.ts│     │  │  ├─ account-position.entity.ts│     │  │  ├─ account-trade.entity.ts│     │  │  └─ account-daily-snapshot.entity.ts│     │  └─ data-ingest│     │     ├─ create-connection.ts│     │     ├─ ingest-stocks.ts│     │     ├─ ingest-quotes.ts│     │     └─ ingest-fundamentals.ts│     ├─ ormconfig.ts│     ├─ tsconfig.json│     ├─ package.json│     └─ Dockerfile├─ docker-compose.yml├─ .env.example└─ README.md
+2. 인프라 설정 (동일)
+docker-compose.yml, .env.example 는 이전과 동일하므로 생략합니다.필요하면 이전 답변에서 복사해서 사용하시면 됩니다.
+3. 백엔드 (NestJS + TypeORM)
+3.1. 엔티티 (기존 10 개 그대로)
+Stock
+StockQuote
+StockFundamental
+News
+Consensus
+UserScreener
+UserAccount
+AccountPosition
+AccountTrade
+AccountDailySnapshot
+코드 구조는 이전과 동일하므로 생략합니다.
+3.2. Accounts 모듈 확장: 매매 내역 수정/삭제
+3.2.1. accounts.service.ts 확장
+기존 accounts.service.ts 에 다음 메서드를 추가합니다.
+// accounts.service.ts 내부에 추가export interface UpdateTradeDto {  side?: 'BUY' | 'SELL';  tradeDate?: string;  price?: number;  quantity?: number;  fee?: number | null;  tax?: number | null;  memo?: string | null;}@Injectable()export class AccountsService {  // ... 기존 생성자 및 메서드 ...  /**   * 매매 내역 수정   * - 내역 업데이트 후 해당 종목 포지션 재계산   */  async updateTrade(tradeId: number, dto: UpdateTradeDto) {    const trade = await this.tradeRepo.findOne({      where: { id: tradeId },      relations: ['account', 'stock'],    });    if (!trade) {      throw new NotFoundException('Trade not found');    }    if (dto.side != null) trade.side = dto.side;    if (dto.tradeDate != null) trade.tradeDate = new Date(dto.tradeDate);    if (dto.price != null) trade.price = dto.price;    if (dto.quantity != null) trade.quantity = dto.quantity;    if (dto.fee !== undefined) trade.fee = dto.fee ?? null;    if (dto.tax !== undefined) trade.tax = dto.tax ?? null;    if (dto.memo !== undefined) trade.memo = dto.memo ?? null;    trade.amount = (trade.price ?? 0) * (trade.quantity ?? 0);    await this.tradeRepo.save(trade);    // 포지션 재계산    await this.recalculatePosition(trade.account, trade.stock);    return trade;  }  /**   * 매매 내역 삭제   * - 삭제 후 해당 종목 포지션 재계산   */  async deleteTrade(tradeId: number) {    const trade = await this.tradeRepo.findOne({      where: { id: tradeId },      relations: ['account', 'stock'],    });    if (!trade) {      throw new NotFoundException('Trade not found');    }    const { account, stock } = trade;    await this.tradeRepo.remove(trade);    // 포지션 재계산    await this.recalculatePosition(account, stock);    return { ok: true };  }  /**   * 특정 매매 내역 상세   */  async getTrade(tradeId: number) {    const trade = await this.tradeRepo.findOne({      where: { id: tradeId },      relations: ['account', 'stock'],    });    if (!trade) {      throw new NotFoundException('Trade not found');    }    return trade;  }}
+설명
+updateTrade:
+매매 내역 수정 후, 해당 계좌+종목 포지션 재계산
+deleteTrade:
+매매 내역 삭제 후, 포지션 재계산
+getTrade:
+수정 페이지에서 기존 데이터 로드용
+3.2.2. accounts.controller.ts 확장
+// accounts.controller.ts 내부에 추가import {  Controller,  Get,  Post,  Body,  Param,  Query,  ParseIntPipe,  Patch,  Delete,} from '@nestjs/common';import { AccountsService, CreateAccountDto, CreateTradeDto, UpdateTradeDto } from './accounts.service';@Controller('accounts')export class AccountsController {  constructor(private accountsService: AccountsService) {}  // ... 기존 엔드포인트 ...  /**   * 매매 내역 상세   */  @Get(':id/trades/:tradeId')  getTrade(    @Param('id', ParseIntPipe) id: number,    @Param('tradeId', ParseIntPipe) tradeId: number,  ) {    return this.accountsService.getTrade(tradeId);  }  /**   * 매매 내역 수정   */  @Patch(':id/trades/:tradeId')  updateTrade(    @Param('id', ParseIntPipe) id: number,    @Param('tradeId', ParseIntPipe) tradeId: number,    @Body() dto: UpdateTradeDto,  ) {    return this.accountsService.updateTrade(tradeId, dto);  }  /**   * 매매 내역 삭제   */  @Delete(':id/trades/:tradeId')  deleteTrade(    @Param('id', ParseIntPipe) id: number,    @Param('tradeId', ParseIntPipe) tradeId: number,  ) {    return this.accountsService.deleteTrade(tradeId);  }}
+API 명세 추가
+GET /accounts/:id/trades/:tradeId – 매매 내역 상세
+PATCH /accounts/:id/trades/:tradeId – 매매 내역 수정
+DELETE /accounts/:id/trades/:tradeId – 매매 내역 삭제
+4. 프론트엔드 확장 (Next.js)
+4.1. 계좌 상세 페이지에 스냅샷 차트 추가
+apps/web/app/accounts/[id]/page.tsx 를 확장해서, 일별 자산 추이 차트를 추가합니다.
+4.1.1. 차트 컴포넌트: apps/web/app/accounts/[id]/chart.tsx
+'use client';import { useEffect, useRef } from 'react';import { createChart, IChartApi, ISeriesApi } from 'lightweight-charts';interface Snapshot {  date: string;  totalAsset: number | null;}export function AccountAssetChart({ accountId }: { accountId: number }) {  const containerRef = useRef<HTMLDivElement | null>(null);  const chartRef = useRef<IChartApi | null>(null);  const lineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);  useEffect(() => {    if (!containerRef.current) return;    const chart = createChart(containerRef.current, {      width: containerRef.current.clientWidth,      height: 250,    });    chartRef.current = chart;    const lineSeries = chart.addLineSeries({      color: '#2563eb',      lineWidth: 2,    });    lineSeriesRef.current = lineSeries;    let cancelled = false;    async function load() {      const now = new Date();      const from = new Date(now.getTime() - 90 * 86400000).toISOString().slice(0, 10);      const to = now.toISOString().slice(0, 10);      const res = await fetch(`/api/accounts/${accountId}/snapshots?from=${from}&to=${to}`);      const data = (await res.json()) as { date: string; totalAsset: number | null }[];      if (cancelled) return;      const points = data        .filter((d) => d.totalAsset != null)        .map((d) => ({          time: new Date(d.date).getTime() / 1000,          value: d.totalAsset as number,        }));      lineSeries.setData(points as any);    }    load();    return () => {      cancelled = true;      chart.remove();    };  }, [accountId]);  return <div ref={containerRef} className="w-full" />;}
+설명
+최근 90 일 스냅샷을 불러와서 총자산 추이 선 그래프 표시
+lightweight-charts 사용 (주가 차트와 동일한 라이브러리)
+4.1.2. apps/web/app/accounts/[id]/page.tsx 확장
+기존 AccountDetailPage 에 다음을 추가합니다.
+스냅샷 차트 임포트
+UI 에 차트 섹션 추가
+'use client';import { useEffect, useState } from 'react';import { useParams } from 'next/navigation';import Link from 'next/link';import { AccountAssetChart } from './chart';interface Position {  id: number;  stock: { code: string; name: string };  quantity: number | null;  averageCost: number | null;  lastValuationAmount: number | null;  unrealizedPnL: number | null;  unrealizedPnLRate: number | null;}interface Account {  id: number;  ownerId: string;  name: string;  broker: string | null;  accountNumber: string | null;  currency: string | null;  cashBalance: number | null;  positions: Position[];}export default function AccountDetailPage() {  const params = useParams();  const id = Number(params.id);  const [account, setAccount] = useState<Account | null>(null);  useEffect(() => {    async function run() {      const [accRes, posRes] = await Promise.all([        fetch(`/api/accounts/${id}`),        fetch(`/api/accounts/${id}/positions`),      ]);      const acc = (await accRes.json()) as Account;      const positions = (await posRes.json()) as Position[];      acc.positions = positions;      setAccount(acc);    }    run();  }, [id]);  if (!account) return <div className="p-4">로딩 중...</div>;  const totalValuation =    account.positions.reduce((sum, p) => sum + (p.lastValuationAmount ?? 0), 0) ?? 0;  const totalPnL =    account.positions.reduce((sum, p) => sum + (p.unrealizedPnL ?? 0), 0) ?? 0;  const totalAsset = (account.cashBalance ?? 0) + totalValuation;  return (    <div className="p-4">      <h1 className="text-xl font-bold mb-2">{account.name}</h1>      <div className="text-sm text-gray-600 mb-4">        {account.broker} | {account.accountNumber ?? '-'} | {account.currency ?? 'KRW'}      </div>      <div className="mb-4 text-sm">        현금: {(account.cashBalance ?? 0).toLocaleString()}원 |        평가금액: {totalValuation.toLocaleString()}원 |        총자산: {totalAsset.toLocaleString()}원 |        평가손익: {totalPnL.toLocaleString()}원      </div>      {/* 자산 추이 차트 */}      <h2 className="text-lg font-semibold mb-2">자산 추이 (90 일)</h2>      <div className="mb-6">        <AccountAssetChart accountId={id} />      </div>      <div className="mb-2 flex gap-2">        <Link          href={`/accounts/${id}/trades/new`}          className="text-blue-600 hover:underline"        >          매매 내역 추가        </Link>      </div>      <h2 className="text-lg font-semibold mb-2">보유 종목</h2>      {account.positions.length === 0 ? (        <div className="text-sm text-gray-500 mb-6">보유 종목이 없습니다.</div>      ) : (        <div className="overflow-x-auto mb-6">          <table className="min-w-full border text-sm">            <thead>              <tr className="bg-gray-50">                <th className="border px-2 py-1">종목</th>                <th className="border px-2 py-1 text-right">수량</th>                <th className="border px-2 py-1 text-right">평균단가</th>                <th className="border px-2 py-1 text-right">평가금액</th>                <th className="border px-2 py-1 text-right">평가손익</th>                <th className="border px-2 py-1 text-right">수익률</th>              </tr>            </thead>            <tbody>              {account.positions.map((p) => (                <tr key={p.id} className="hover:bg-gray-50">                  <td className="border px-2 py-1">                    <Link                      href={`/stocks/${p.stock.code}`}                      className="text-blue-600 hover:underline"                    >                      {p.stock.name} ({p.stock.code})                    </Link>                  </td>                  <td className="border px-2 py-1 text-right">                    {(p.quantity ?? 0).toLocaleString()}                  </td>                  <td className="border px-2 py-1 text-right">                    {(p.averageCost ?? 0).toLocaleString()}                  </td>                  <td className="border px-2 py-1 text-right">                    {(p.lastValuationAmount ?? 0).toLocaleString()}                  </td>                  <td className="border px-2 py-1 text-right">                    {(p.unrealizedPnL ?? 0).toLocaleString()}                  </td>                  <td className="border px-2 py-1 text-right">                    {(p.unrealizedPnLRate ?? 0).toFixed(2)}%                  </td>                </tr>              ))}            </tbody>          </table>        </div>      )}    </div>  );}
+4.2. 매매 내역 수정 페이지
+apps/web/app/accounts/[id]/trades/[tradeId]/edit/page.tsx
+'use client';import { useEffect, useState } from 'react';import { useParams, useRouter } from 'next/navigation';export default function EditTradePage() {  const params = useParams();  const router = useRouter();  const id = Number(params.id);  const tradeId = Number(params.tradeId);  const [loading, setLoading] = useState(true);  const [side, setSide] = useState<'BUY' | 'SELL'>('BUY');  const [tradeDate, setTradeDate] = useState('');  const [price, setPrice] = useState<string>('');  const [quantity, setQuantity] = useState<string>('');  const [fee, setFee] = useState<string>('');  const [tax, setTax] = useState<string>('');  const [memo, setMemo] = useState('');  useEffect(() => {    async function run() {      const res = await fetch(`/api/accounts/${id}/trades/${tradeId}`);      const t = await res.json();      setSide(t.side);      setTradeDate(t.tradeDate.slice(0, 10));      setPrice(String(t.price ?? ''));      setQuantity(String(t.quantity ?? ''));      setFee(t.fee != null ? String(t.fee) : '');      setTax(t.tax != null ? String(t.tax) : '');      setMemo(t.memo ?? '');      setLoading(false);    }    run();  }, [id, tradeId]);  if (loading) return <div className="p-4">로딩 중...</div>;  async function handleSubmit(e: React.FormEvent) {    e.preventDefault();    const res = await fetch(`/api/accounts/${id}/trades/${tradeId}`, {      method: 'PATCH',      headers: { 'Content-Type': 'application/json' },      body: JSON.stringify({        side,        tradeDate,        price: price ? Number(price) : undefined,        quantity: quantity ? Number(quantity) : undefined,        fee: fee ? Number(fee) : null,        tax: tax ? Number(tax) : null,        memo: memo || null,      }),    });    if (res.ok) {      router.push(`/accounts/${id}`);    } else {      alert('수정 실패');    }  }  async function handleDelete() {    if (!confirm('정말 삭제하시겠습니까?')) return;    const res = await fetch(`/api/accounts/${id}/trades/${tradeId}`, {      method: 'DELETE',    });    if (res.ok) {      router.push(`/accounts/${id}`);    } else {      alert('삭제 실패');    }  }  return (    <div className="p-4">      <h1 className="text-xl font-bold mb-4">매매 내역 수정</h1>      <form onSubmit={handleSubmit} className="space-y-3 max-w-md">        <div>          <label className="block text-sm mb-1">매매 구분</label>          <select            className="border px-2 py-1 rounded w-full"            value={side}            onChange={(e) => setSide(e.target.value as 'BUY' | 'SELL')}          >            <option value="BUY">매수</option>            <option value="SELL">매도</option>          </select>        </div>        <div>          <label className="block text-sm mb-1">체결일</label>          <input            className="border px-2 py-1 rounded w-full"            type="date"            value={tradeDate}            onChange={(e) => setTradeDate(e.target.value)}            required          />        </div>        <div>          <label className="block text-sm mb-1">체결 단가 (원)</label>          <input            className="border px-2 py-1 rounded w-full"            type="number"            value={price}            onChange={(e) => setPrice(e.target.value)}          />        </div>        <div>          <label className="block text-sm mb-1">체결 수량</label>          <input            className="border px-2 py-1 rounded w-full"            type="number"            value={quantity}            onChange={(e) => setQuantity(e.target.value)}          />        </div>        <div>          <label className="block text-sm mb-1">수수료 (원)</label>          <input            className="border px-2 py-1 rounded w-full"            type="number"            value={fee}            onChange={(e) => setFee(e.target.value)}          />        </div>        <div>          <label className="block text-sm mb-1">제세공과금 (원)</label>          <input            className="border px-2 py-1 rounded w-full"            type="number"            value={tax}            onChange={(e) => setTax(e.target.value)}          />        </div>        <div>          <label className="block text-sm mb-1">비고</label>          <textarea            className="border px-2 py-1 rounded w-full"            value={memo}            onChange={(e) => setMemo(e.target.value)}          />        </div>        <div className="flex gap-2">          <button            type="submit"            className="bg-blue-600 text-white px-4 py-2 rounded"          >            저장          </button>          <button            type="button"            onClick={handleDelete}            className="bg-red-600 text-white px-4 py-2 rounded"          >            삭제          </button>        </div>      </form>    </div>  );}
+설명
+GET /api/accounts/:id/trades/:tradeId 로 기존 데이터 로드
+PATCH 로 수정, DELETE 로 삭제
+수정/삭제 후 계좌 상세로 이동
+4.3. 계좌 상세에서 매매 내역 목록 + 수정 링크
+apps/web/app/accounts/[id]/page.tsx 에 매매 내역 목록 섹션을 추가합니다.
+// AccountDetailPage 내부에 추가interface Trade {  id: number;  stock: { code: string; name: string };  side: 'BUY' | 'SELL';  tradeDate: string;  price: number | null;  quantity: number | null;  amount: number | null;  fee: number | null;  tax: number | null;  memo: string | null;}// ... 기존 account 상태 아래에 ...const [trades, setTrades] = useState<Trade[]>([]);useEffect(() => {  async function run() {    const [accRes, posRes, tradesRes] = await Promise.all([      fetch(`/api/accounts/${id}`),      fetch(`/api/accounts/${id}/positions`),      fetch(`/api/accounts/${id}/trades?limit=50`),    ]);    const acc = (await accRes.json()) as Account;    const positions = (await posRes.json()) as Position[];    const tradesData = (await tradesRes.json()) as Trade[];    acc.positions = positions;    setAccount(acc);    setTrades(tradesData);  }  run();}, [id]);
+UI 에 추가:
+      <h2 className="text-lg font-semibold mb-2 mt-6">매매 내역</h2>      {trades.length === 0 ? (        <div className="text-sm text-gray-500 mb-6">매매 내역이 없습니다.</div>      ) : (        <div className="overflow-x-auto mb-6">          <table className="min-w-full border text-sm">            <thead>              <tr className="bg-gray-50">                <th className="border px-2 py-1">일자</th>                <th className="border px-2 py-1">종목</th>                <th className="border px-2 py-1">구분</th>                <th className="border px-2 py-1 text-right">단가</th>                <th className="border px-2 py-1 text-right">수량</th>                <th className="border px-2 py-1 text-right">금액</th>                <th className="border px-2 py-1">비고</th>                <th className="border px-2 py-1"></th>              </tr>            </thead>            <tbody>              {trades.map((t) => (                <tr key={t.id} className="hover:bg-gray-50">                  <td className="border px-2 py-1">{t.tradeDate.slice(0, 10)}</td>                  <td className="border px-2 py-1">                    <Link                      href={`/stocks/${t.stock.code}`}                      className="text-blue-600 hover:underline"                    >                      {t.stock.name}                    </Link>                  </td>                  <td className="border px-2 py-1">                    {t.side === 'BUY' ? '매수' : '매도'}                  </td>                  <td className="border px-2 py-1 text-right">                    {(t.price ?? 0).toLocaleString()}                  </td>                  <td className="border px-2 py-1 text-right">                    {(t.quantity ?? 0).toLocaleString()}                  </td>                  <td className="border px-2 py-1 text-right">                    {(t.amount ?? 0).toLocaleString()}                  </td>                  <td className="border px-2 py-1">{t.memo ?? '-'}</td>                  <td className="border px-2 py-1 text-center">                    <Link                      href={`/accounts/${id}/trades/${t.id}/edit`}                      className="text-blue-600 hover:underline"                    >                      수정                    </Link>                  </td>                </tr>              ))}            </tbody>          </table>        </div>      )}
+5. 실행 방법
+.env.example → .env 복사
+루트에서:
+docker compose up --build
+브라우저에서:
+http://localhost:3000
+/stocks – 종목 목록/상세/차트/뉴스/컨센서스
+/accounts?ownerId=user1 – 계좌 목록
+/accounts/new?ownerId=user1 – 새 계좌 추가
+/accounts/1 – 계좌 상세 (보유 종목, 매매 내역, 자산 추이 차트)
+/accounts/1/trades/new – 매매 내역 추가
+/accounts/1/trades/1/edit – 매매 내역 수정/삭제
+6. 이 프로젝트의 핵심 포인트 정리
+단일 프로젝트 안에 다음이 모두 포함됨:
+한국 주식 시장 데이터 대시보드 (Investing.com 스타일)
+종목별 차트 + 뉴스 + 컨센서스
+사용자별 계좌 관리 + 매매 내역 + 평가손익 자동 계산
+일별 자산 추이 차트
+매매 내역 수정/삭제 및 자동 포지션 재계산
+확장 포인트:
+증권사 API 연동 (자동 매매 내역 동기화)
+인증/인가 (JWT, OAuth)
+알림 (실적 발표, 컨센서스 변경, 목표가 상향 등)
+백테스트/포트폴리오 최적화 등
+이 코드가 “모든 기능을 다 추가한 완전판”입니다.이 내용을 그대로 Cursor 에게 주면, 프로젝트 전체를 한 번에 만들어 줄 것입니다.더 구체적으로 “이 파일은 이렇게 고쳐줘”, “이 UI 컴포넌트만 따로 빼줘” 등이 필요하면 그 부분만 집중해서 추가로 적어드릴 수 있습니다.

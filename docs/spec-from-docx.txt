@@ -1,0 +1,141 @@
+카서한테 보낼껀데 좀 더 디테일 적으로 알려줘
+아래는 Cursor(Cursor IDE) 에게 “이 프로젝트의 전체 설계 + 구현 세부사항”을 한 번에 전달할 수 있도록, 매우 디테일한 명세서 + 코드 가이드 형태입니다. 이 내용을 그대로 Cursor 의 채팅/프롬프트로 넣으면, 프로젝트 생성부터 확장까지 일관된 맥락으로 작업할 수 있습니다.
+Cursor 용 프로젝트 명세서 (한국 주식 대시보드 + 스크리너)
+0. 프로젝트 목표
+https://kr.investing.com/equities/south-korea 페이지를 참고하여,
+한국 주식 종목 목록 + 필터/정렬 (스크리너)
+종목 상세 (시세, 재무, 차트, 뉴스, 컨센서스)
+사용자별 스크리너 저장 기능
+을 제공하는 웹 애플리케이션을 구축한다.
+기술 스택
+프론트엔드: Next.js 14 (앱 라우터), React 18, TypeScript, Tailwind CSS
+백엔드: NestJS 10, TypeScript, TypeORM 0.3
+DB: PostgreSQL 16
+인프라: docker-compose (db, api, web)
+1. 전체 디렉터리 구조
+kr-stock-dashboard├─ apps│  ├─ web                 # Next.js 프론트엔드│  │  ├─ app│  │  │  ├─ layout.tsx│  │  │  ├─ globals.css│  │  │  ├─ page.tsx│  │  │  └─ stocks│  │  │     ├─ page.tsx│  │  │     └─ [code]│  │  │        ├─ page.tsx│  │  │        └─ chart.tsx│  │  ├─ public│  │  ├─ next.config.js│  │  ├─ tailwind.config.js│  │  ├─ postcss.config.js│  │  ├─ tsconfig.json│  │  ├─ package.json│  │  └─ Dockerfile│  └─ api                 # NestJS 백엔드│     ├─ src│     │  ├─ main.ts│     │  ├─ app.module.ts│     │  ├─ stocks│     │  │  ├─ stocks.module.ts│     │  │  ├─ stocks.controller.ts│     │  │  └─ stocks.service.ts│     │  ├─ entities│     │  │  ├─ stock.entity.ts│     │  │  ├─ stock-quote.entity.ts│     │  │  ├─ stock-fundamental.entity.ts│     │  │  ├─ news.entity.ts│     │  │  ├─ consensus.entity.ts│     │  │  └─ user-screener.entity.ts│     │  └─ data-ingest│     │     ├─ create-connection.ts│     │     ├─ ingest-stocks.ts│     │     ├─ ingest-quotes.ts│     │     └─ ingest-fundamentals.ts│     ├─ ormconfig.ts│     ├─ tsconfig.json│     ├─ package.json│     └─ Dockerfile├─ docker-compose.yml├─ .env.example└─ README.md
+2. 인프라 설정
+2.1. docker-compose.yml
+version: '3.8'services:  db:    image: postgres:16    environment:      POSTGRES_USER: krstock      POSTGRES_PASSWORD: krstockpass      POSTGRES_DB: krstock    ports:      - '5432:5432'    volumes:      - krstock_db_data:/var/lib/postgresql/data  api:    build:      context: .      dockerfile: apps/api/Dockerfile    environment:      DATABASE_HOST: db      DATABASE_PORT: 5432      DATABASE_USER: krstock      DATABASE_PASSWORD: krstockpass      DATABASE_NAME: krstock      PORT: 3001    ports:      - '3001:3001'    depends_on:      - db    command: sh -c "npm run migration:run && npm run start:prod"  web:    build:      context: .      dockerfile: apps/web/Dockerfile    environment:      NEXT_PUBLIC_API_URL: http://localhost:3001    ports:      - '3000:3000'    depends_on:      - apivolumes:  krstock_db_data:
+요구사항
+db: PostgreSQL 16, krstock DB/유저 생성
+api:
+apps/api/Dockerfile 로 빌드
+시작 시 마이그레이션 실행 후 서버 기동
+web:
+apps/web/Dockerfile 로 빌드
+NEXT_PUBLIC_API_URL 로 API 주소 전달
+2.2. .env.example
+# APIDATABASE_HOST=localhostDATABASE_PORT=5432DATABASE_USER=krstockDATABASE_PASSWORD=krstockpassDATABASE_NAME=krstockPORT=3001# WEBNEXT_PUBLIC_API_URL=http://localhost:3001
+3. DB 스키마 (TypeORM 엔티티)
+3.1. Stock (종목 마스터)
+apps/api/src/entities/stock.entity.ts
+import {  Entity,  PrimaryColumn,  Column,  CreateDateColumn,  UpdateDateColumn,  OneToMany,} from 'typeorm';import { StockQuote } from './stock-quote.entity';import { StockFundamental } from './stock-fundamental.entity';@Entity('stocks')export class Stock {  @PrimaryColumn({ type: 'varchar', length: 10 })  code!: string;  @Column({ type: 'varchar', length: 100 })  name!: string;  @Column({ type: 'varchar', length: 100, nullable: true })  nameEn!: string | null;  @Column({ type: 'varchar', length: 50, nullable: true })  market!: string | null; // 'KOSPI', 'KOSDAQ'  @Column({ type: 'varchar', length: 100, nullable: true })  sector!: string | null;  @Column({ type: 'varchar', length: 100, nullable: true })  industry!: string | null;  @Column({ type: 'decimal', precision: 20, scale: 0, nullable: true })  marketCap!: number | null;  @CreateDateColumn()  createdAt!: Date;  @UpdateDateColumn()  updatedAt!: Date;  @OneToMany(() => StockQuote, (q) => q.stock)  quotes!: StockQuote[];  @OneToMany(() => StockFundamental, (f) => f.stock)  fundamentals!: StockFundamental[];}
+스키마 요약
+stocks(code PK, name, nameEn, market, sector, industry, marketCap, createdAt, updatedAt)
+3.2. StockQuote (일별 시세)
+apps/api/src/entities/stock-quote.entity.ts
+import {  Entity,  PrimaryGeneratedColumn,  Column,  CreateDateColumn,  ManyToOne,  Unique,} from 'typeorm';import { Stock } from './stock.entity';@Entity('stock_quotes')@Unique(['stock', 'date'])export class StockQuote {  @PrimaryGeneratedColumn()  id!: number;  @ManyToOne(() => Stock, { onDelete: 'CASCADE', nullable: false })  stock!: Stock;  @Column({ type: 'date' })  date!: Date;  @Column({ type: 'decimal', precision: 20, scale: 0, nullable: true })  open!: number | null;  @Column({ type: 'decimal', precision: 20, scale: 0, nullable: true })  high!: number | null;  @Column({ type: 'decimal', precision: 20, scale: 0, nullable: true })  low!: number | null;  @Column({ type: 'decimal', precision: 20, scale: 0, nullable: true })  close!: number | null;  @Column({ type: 'decimal', precision: 20, scale: 0, nullable: true })  volume!: number | null;  @Column({ type: 'decimal', precision: 20, scale: 0, nullable: true })  amount!: number | null;  @CreateDateColumn()  createdAt!: Date;}
+스키마 요약
+stock_quotes(id PK, stock_id FK, date, open, high, low, close, volume, amount, createdAt)
+유니크: (stock_id, date)
+3.3. StockFundamental (재무지표)
+apps/api/src/entities/stock-fundamental.entity.ts
+import {  Entity,  PrimaryGeneratedColumn,  Column,  ManyToOne,  Unique,  CreateDateColumn,} from 'typeorm';import { Stock } from './stock.entity';@Entity('stock_fundamentals')@Unique(['stock', 'fiscalYear', 'fiscalQuarter'])export class StockFundamental {  @PrimaryGeneratedColumn()  id!: number;  @ManyToOne(() => Stock, { onDelete: 'CASCADE', nullable: false })  stock!: Stock;  @Column({ type: 'int', nullable: true })  fiscalYear!: number | null;  @Column({ type: 'int', nullable: true })  fiscalQuarter!: number | null;  @Column({ type: 'decimal', precision: 20, scale: 2, nullable: true })  per!: number | null;  @Column({ type: 'decimal', precision: 20, scale: 2, nullable: true })  pbr!: number | null;  @Column({ type: 'decimal', precision: 20, scale: 2, nullable: true })  roe!: number | null;  @Column({ type: 'decimal', precision: 20, scale: 2, nullable: true })  opMargin!: number | null;  @Column({ type: 'decimal', precision: 20, scale: 2, nullable: true })  netMargin!: number | null;  @Column({ type: 'decimal', precision: 20, scale: 2, nullable: true })  debtRatio!: number | null;  @Column({ type: 'decimal', precision: 20, scale: 2, nullable: true })  dividendYield!: number | null;  @CreateDateColumn()  createdAt!: Date;}
+스키마 요약
+stock_fundamentals(id PK, stock_id FK, fiscalYear, fiscalQuarter, per, pbr, roe, opMargin, netMargin, debtRatio, dividendYield, createdAt)
+유니크: (stock_id, fiscalYear, fiscalQuarter)
+3.4. News (뉴스)
+apps/api/src/entities/news.entity.ts
+import {  Entity,  PrimaryGeneratedColumn,  Column,  CreateDateColumn,  ManyToOne,  Index,} from 'typeorm';import { Stock } from './stock.entity';@Entity('news')@Index(['stock', 'publishedAt'])export class News {  @PrimaryGeneratedColumn()  id!: number;  @ManyToOne(() => Stock, { onDelete: 'CASCADE', nullable: true })  stock: Stock | null;  @Column({ type: 'varchar', length: 300 })  title!: string;  @Column({ type: 'text', nullable: true })  summary: string | null;  @Column({ type: 'varchar', length: 500, nullable: true })  url: string | null;  @Column({ type: 'varchar', length: 100, nullable: true })  source: string | null;  @Column({ type: 'timestamptz', nullable: true })  publishedAt: Date | null;  @Column({ type: 'varchar', length: 50, nullable: true })  sentiment: string | null;  @CreateDateColumn()  createdAt!: Date;}
+스키마 요약
+news(id PK, stock_id FK nullable, title, summary, url, source, publishedAt, sentiment, createdAt)
+3.5. Consensus (컨센서스)
+apps/api/src/entities/consensus.entity.ts
+import {  Entity,  PrimaryGeneratedColumn,  Column,  ManyToOne,  Unique,  CreateDateColumn,} from 'typeorm';import { Stock } from './stock.entity';@Entity('consensus')@Unique(['stock', 'date'])export class Consensus {  @PrimaryGeneratedColumn()  id!: number;  @ManyToOne(() => Stock, { onDelete: 'CASCADE', nullable: false })  stock!: Stock;  @Column({ type: 'date' })  date!: Date;  @Column({ type: 'decimal', precision: 20, scale: 0, nullable: true })  targetPriceAvg: number | null;  @Column({ type: 'decimal', precision: 20, scale: 0, nullable: true })  targetPriceHigh: number | null;  @Column({ type: 'decimal', precision: 20, scale: 0, nullable: true })  targetPriceLow: number | null;  @Column({ type: 'int', nullable: true })  buyCount: number | null;  @Column({ type: 'int', nullable: true })  holdCount: number | null;  @Column({ type: 'int', nullable: true })  sellCount: number | null;  @CreateDateColumn()  createdAt!: Date;}
+스키마 요약
+consensus(id PK, stock_id FK, date, targetPriceAvg, targetPriceHigh, targetPriceLow, buyCount, holdCount, sellCount, createdAt)
+유니크: (stock_id, date)
+3.6. UserScreener (사용자별 스크리너)
+apps/api/src/entities/user-screener.entity.ts
+import {  Entity,  PrimaryGeneratedColumn,  Column,  CreateDateColumn,  UpdateDateColumn,} from 'typeorm';@Entity('user_screeners')export class UserScreener {  @PrimaryGeneratedColumn()  id!: number;  @Column({ type: 'varchar', length: 100 })  name!: string;  @Column({ type: 'jsonb' })  conditions: any;  @Column({ type: 'varchar', length: 100, nullable: true })  createdBy: string | null;  @CreateDateColumn()  createdAt!: Date;  @UpdateDateColumn()  updatedAt!: Date;}
+스키마 요약
+user_screeners(id PK, name, conditions JSONB, createdBy, createdAt, updatedAt)
+4. 백엔드 API 설계
+4.1. app.module.ts 설정
+apps/api/src/app.module.ts
+import { Module } from '@nestjs/common';import { TypeOrmModule } from '@nestjs/typeorm';import { StocksModule } from './stocks/stocks.module';import { Stock } from './entities/stock.entity';import { StockQuote } from './entities/stock-quote.entity';import { StockFundamental } from './entities/stock-fundamental.entity';import { News } from './entities/news.entity';import { Consensus } from './entities/consensus.entity';import { UserScreener } from './entities/user-screener.entity';@Module({  imports: [    TypeOrmModule.forRoot({      type: 'postgres',      host: process.env.DATABASE_HOST || 'localhost',      port: Number(process.env.DATABASE_PORT) || 5432,      username: process.env.DATABASE_USER || 'krstock',      password: process.env.DATABASE_PASSWORD || 'krstockpass',      database: process.env.DATABASE_NAME || 'krstock',      entities: [        Stock,        StockQuote,        StockFundamental,        News,        Consensus,        UserScreener,      ],      synchronize: true, // 개발용. 운영에서는 false + 마이그레이션    }),    StocksModule,  ],})export class AppModule {}
+요구사항
+모든 엔티티 등록
+synchronize: true 는 개발 환경 한정, 운영에서는 마이그레이션 사용
+4.2. Stocks 모듈
+4.2.1. stocks.module.ts
+import { Module } from '@nestjs/common';import { TypeOrmModule } from '@nestjs/typeorm';import { StocksService } from './stocks.service';import { StocksController } from './stocks.controller';import { Stock } from '../entities/stock.entity';import { StockQuote } from '../entities/stock-quote.entity';import { StockFundamental } from '../entities/stock-fundamental.entity';import { News } from '../entities/news.entity';import { Consensus } from '../entities/consensus.entity';import { UserScreener } from '../entities/user-screener.entity';@Module({  imports: [    TypeOrmModule.forFeature([      Stock,      StockQuote,      StockFundamental,      News,      Consensus,      UserScreener,    ]),  ],  providers: [StocksService],  controllers: [StocksController],})export class StocksModule {}
+4.2.2. stocks.service.ts (전체)
+apps/api/src/stocks/stocks.service.ts
+import { Injectable } from '@nestjs/common';import { InjectRepository } from '@nestjs/typeorm';import { Repository } from 'typeorm';import { Stock } from '../entities/stock.entity';import { StockQuote } from '../entities/stock-quote.entity';import { StockFundamental } from '../entities/stock-fundamental.entity';import { News } from '../entities/news.entity';import { Consensus } from '../entities/consensus.entity';import { UserScreener } from '../entities/user-screener.entity';export interface ListStocksDto {  query?: string;  market?: string;  sector?: string;  industry?: string;  marketCapGte?: number;  marketCapLte?: number;  perGte?: number;  perLte?: number;  pbrGte?: number;  pbrLte?: number;  dividendYieldGte?: number;  sortBy?: 'marketCap' | 'per' | 'pbr' | 'dividendYield' | 'name';  sortOrder?: 'ASC' | 'DESC';  limit?: number;  offset?: number;}@Injectable()export class StocksService {  constructor(    @InjectRepository(Stock)    private stockRepo: Repository<Stock>,    @InjectRepository(StockQuote)    private quoteRepo: Repository<StockQuote>,    @InjectRepository(StockFundamental)    private fundRepo: Repository<StockFundamental>,    @InjectRepository(News)    private newsRepo: Repository<News>,    @InjectRepository(Consensus)    private consensusRepo: Repository<Consensus>,    @InjectRepository(UserScreener)    private screenerRepo: Repository<UserScreener>,  ) {}  async listStocks(dto: ListStocksDto) {    const {      query,      market,      sector,      industry,      marketCapGte,      marketCapLte,      perGte,      perLte,      pbrGte,      pbrLte,      dividendYieldGte,      sortBy = 'marketCap',      sortOrder = 'DESC',      limit = 50,      offset = 0,    } = dto;    const qb = this.stockRepo      .createQueryBuilder('s')      .leftJoinAndSelect('s.fundamentals', 'f')      .orderBy(`s.${sortBy}`, sortOrder)      .limit(limit)      .offset(offset);    if (query) {      qb.andWhere('s.name LIKE :q OR s.code LIKE :q OR s.nameEn LIKE :q', {        q: `%${query}%`,      });    }    if (market) {      qb.andWhere('s.market = :market', { market });    }    if (sector) {      qb.andWhere('s.sector = :sector', { sector });    }    if (industry) {      qb.andWhere('s.industry = :industry', { industry });    }    if (marketCapGte != null) {      qb.andWhere('s.marketCap >= :marketCapGte', { marketCapGte });    }    if (marketCapLte != null) {      qb.andWhere('s.marketCap <= :marketCapLte', { marketCapLte });    }    if (perGte != null) {      qb.andWhere('f.per >= :perGte', { perGte });    }    if (perLte != null) {      qb.andWhere('f.per <= :perLte', { perLte });    }    if (pbrGte != null) {      qb.andWhere('f.pbr >= :pbrGte', { pbrGte });    }    if (pbrLte != null) {      qb.andWhere('f.pbr <= :pbrLte', { pbrLte });    }    if (dividendYieldGte != null) {      qb.andWhere('f.dividendYield >= :dividendYieldGte', {        dividendYieldGte,      });    }    const [stocks, total] = await qb.getManyAndCount();    return { stocks, total };  }  async getStockDetail(code: string) {    const stock = await this.stockRepo.findOne({      where: { code },      relations: ['fundamentals'],    });    if (!stock) {      return null;    }    const latestQuote = await this.quoteRepo.findOne({      where: { stock: { code } },      order: { date: 'DESC' },    });    return {      stock,      latestQuote,    };  }  async getStockQuotes(code: string, limit = 200) {    const quotes = await this.quoteRepo.find({      where: { stock: { code } },      order: { date: 'ASC' },      take: limit,      select: ['date', 'open', 'high', 'low', 'close', 'volume'],    });    return quotes.map((q) => ({      date: q.date.toISOString().slice(0, 10),      open: Number(q.open) ?? 0,      high: Number(q.high) ?? 0,      low: Number(q.low) ?? 0,      close: Number(q.close) ?? 0,      volume: Number(q.volume) ?? 0,    }));  }  async getStockNews(code: string, limit = 20) {    const stock = await this.stockRepo.findOne({ where: { code } });    if (!stock) return [];    const news = await this.newsRepo.find({      where: [{ stock: { code } }, { stock: null }],      order: { publishedAt: 'DESC' },      take: limit,    });    return news.map((n) => ({      id: n.id,      title: n.title,      summary: n.summary,      url: n.url,      source: n.source,      publishedAt: n.publishedAt?.toISOString(),      sentiment: n.sentiment,    }));  }  async getStockConsensus(code: string) {    const stock = await this.stockRepo.findOne({ where: { code } });    if (!stock) return null;    const consensus = await this.consensusRepo.findOne({      where: { stock: { code } },      order: { date: 'DESC' },    });    if (!consensus) return null;    return {      date: consensus.date.toISOString().slice(0, 10),      targetPriceAvg: consensus.targetPriceAvg,      targetPriceHigh: consensus.targetPriceHigh,      targetPriceLow: consensus.targetPriceLow,      buyCount: consensus.buyCount,      holdCount: consensus.holdCount,      sellCount: consensus.sellCount,    };  }  async saveScreener(name: string, conditions: any, createdBy?: string | null) {    const screener = this.screenerRepo.create({      name,      conditions,      createdBy: createdBy ?? null,    });    return this.screenerRepo.save(screener);  }  async listScreeners(createdBy?: string | null) {    const where: any = {};    if (createdBy) {      where.createdBy = createdBy;    }    return this.screenerRepo.find({      where,      order: { createdAt: 'DESC' },    });  }  async deleteScreener(id: number) {    await this.screenerRepo.delete(id);    return { ok: true };  }}
+API 명세 요약
+GET /stocks – 목록 + 필터/정렬
+GET /stocks/:code – 상세 (시세 + 재무)
+GET /stocks/:code/quotes – 일봉 목록 (차트용)
+GET /stocks/:code/news – 뉴스 목록
+GET /stocks/:code/consensus – 최신 컨센서스
+POST /stocks/screeners – 스크리너 저장
+GET /stocks/screeners – 스크리너 목록
+DELETE /stocks/screeners/:id – 스크리너 삭제
+4.2.3. stocks.controller.ts (전체)
+import {  Controller,  Get,  Query,  Param,  Body,  Post,  Delete,} from '@nestjs/common';import { StocksService, ListStocksDto } from './stocks.service';@Controller('stocks')export class StocksController {  constructor(private stocksService: StocksService) {}  @Get()  list(@Query() query: ListStocksDto) {    return this.stocksService.listStocks(query);  }  @Get(':code')  detail(@Param('code') code: string) {    return this.stocksService.getStockDetail(code);  }  @Get(':code/quotes')  quotes(    @Param('code') code: string,    @Query('limit') limit?: number,  ) {    return this.stocksService.getStockQuotes(code, limit ? Number(limit) : 200);  }  @Get(':code/news')  news(    @Param('code') code: string,    @Query('limit') limit?: number,  ) {    return this.stocksService.getStockNews(code, limit ? Number(limit) : 20);  }  @Get(':code/consensus')  consensus(@Param('code') code: string) {    return this.stocksService.getStockConsensus(code);  }  @Post('screeners')  saveScreener(    @Body() body: { name: string; conditions: any; createdBy?: string | null },  ) {    return this.stocksService.saveScreener(body.name, body.conditions, body.createdBy);  }  @Get('screeners')  listScreeners(@Query('createdBy') createdBy?: string) {    return this.stocksService.listScreeners(createdBy ?? null);  }  @Delete('screeners/:id')  deleteScreener(@Param('id') id: number) {    return this.stocksService.deleteScreener(id);  }}
+5. 데이터 연동 스크립트 (ETL)
+5.1. create-connection.ts
+apps/api/src/data-ingest/create-connection.ts
+import { DataSource } from 'typeorm';import { Stock } from '../entities/stock.entity';import { StockQuote } from '../entities/stock-quote.entity';import { StockFundamental } from '../entities/stock-fundamental.entity';export async function createAppDataSource() {  const ds = new DataSource({    type: 'postgres',    host: process.env.DATABASE_HOST || 'localhost',    port: Number(process.env.DATABASE_PORT) || 5432,    username: process.env.DATABASE_USER || 'krstock',    password: process.env.DATABASE_PASSWORD || 'krstockpass',    database: process.env.DATABASE_NAME || 'krstock',    entities: [Stock, StockQuote, StockFundamental],    synchronize: false,  });  await ds.initialize();  return ds;}
+5.2. ingest-stocks.ts
+apps/api/src/data-ingest/ingest-stocks.ts
+import { createAppDataSource } from './create-connection';import { Stock } from '../entities/stock.entity';interface ExternalStock {  code: string;  name: string;  nameEn?: string | null;  market?: string | null;  sector?: string | null;  industry?: string | null;  marketCap?: number | null;}async function fetchExternalStocks(): Promise<ExternalStock[]> {  // 실제 구현 시 KRX/증권사/유료 API 호출  return [    {      code: '005930',      name: '삼성전자',      nameEn: 'Samsung Electronics',      market: 'KOSPI',      sector: 'IT',      industry: '전기전자',      marketCap: 400000000000000,    },    {      code: '035420',      name: 'NAVER',      nameEn: 'NAVER Corporation',      market: 'KOSPI',      sector: 'IT',      industry: '인터넷',      marketCap: 50000000000000,    },  ];}export async function ingestStocks() {  const ds = await createAppDataSource();  try {    const externalStocks = await fetchExternalStocks();    await ds.manager.upsert(      Stock,      externalStocks.map((s) => ({        code: s.code,        name: s.name,        nameEn: s.nameEn ?? null,        market: s.market ?? null,        sector: s.sector ?? null,        industry: s.industry ?? null,        marketCap: s.marketCap ?? null,      })),      ['code'],    );    console.log('Stocks upserted:', externalStocks.length);  } finally {    await ds.destroy();  }}if (require.main === module) {  ingestStocks().catch(console.error);}
+5.3. ingest-quotes.ts
+apps/api/src/data-ingest/ingest-quotes.ts
+import { createAppDataSource } from './create-connection';import { StockQuote } from '../entities/stock-quote.entity';interface ExternalQuote {  code: string;  date: string;  open: number;  high: number;  low: number;  close: number;  volume: number;  amount?: number;}async function fetchExternalQuotes(  code: string,  from: string,  to: string,): Promise<ExternalQuote[]> {  // 실제 구현 시 일봉 API 호출  return [    {      code,      date: '2024-09-30',      open: 70000,      high: 71000,      low: 69500,      close: 70500,      volume: 10000000,      amount: 705000000000,    },  ];}export async function ingestQuotesForCode(  code: string,  from: string,  to: string,) {  const ds = await createAppDataSource();  try {    const quotes = await fetchExternalQuotes(code, from, to);    await ds.manager.upsert(      StockQuote,      quotes.map((q) => ({        stock: { code: q.code },        date: new Date(q.date),        open: q.open,        high: q.high,        low: q.low,        close: q.close,        volume: q.volume,        amount: q.amount ?? null,      })),      ['stock', 'date'],    );    console.log(`Quotes upserted for ${code}:`, quotes.length);  } finally {    await ds.destroy();  }}export async function ingestAllQuotes(from: string, to: string) {  const ds = await createAppDataSource();  try {    const stocks = await ds.manager.find(Stock, { select: ['code'] });    for (const s of stocks) {      await ingestQuotesForCode(s.code, from, to);    }  } finally {    await ds.destroy();  }}if (require.main === module) {  const to = new Date().toISOString().slice(0, 10);  const from = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);  ingestAllQuotes(from, to).catch(console.error);}
+5.4. ingest-fundamentals.ts
+apps/api/src/data-ingest/ingest-fundamentals.ts
+import { createAppDataSource } from './create-connection';import { StockFundamental } from '../entities/stock-fundamental.entity';interface ExternalFundamental {  code: string;  fiscalYear: number;  fiscalQuarter: number | null;  per?: number | null;  pbr?: number | null;  roe?: number | null;  opMargin?: number | null;  netMargin?: number | null;  debtRatio?: number | null;  dividendYield?: number | null;}async function fetchExternalFundamentals(): Promise<ExternalFundamental[]> {  // 실제 구현 시 재무 API 호출  return [    {      code: '005930',      fiscalYear: 2024,      fiscalQuarter: 2,      per: 15.3,      pbr: 1.2,      roe: 8.5,      opMargin: 12.1,      netMargin: 9.3,      debtRatio: 40.2,      dividendYield: 2.1,    },  ];}export async function ingestFundamentals() {  const ds = await createAppDataSource();  try {    const items = await fetchExternalFundamentals();    await ds.manager.upsert(      StockFundamental,      items.map((f) => ({        stock: { code: f.code },        fiscalYear: f.fiscalYear,        fiscalQuarter: f.fiscalQuarter,        per: f.per ?? null,        pbr: f.pbr ?? null,        roe: f.roe ?? null,        opMargin: f.opMargin ?? null,        netMargin: f.netMargin ?? null,        debtRatio: f.debtRatio ?? null,        dividendYield: f.dividendYield ?? null,      })),      ['stock', 'fiscalYear', 'fiscalQuarter'],    );    console.log('Fundamentals upserted:', items.length);  } finally {    await ds.destroy();  }}if (require.main === module) {  ingestFundamentals().catch(console.error);}
+6. 프론트엔드 (Next.js) 상세
+6.1. next.config.js
+/** @type {import('next').NextConfig} */const nextConfig = {  async rewrites() {    const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';    return [      {        source: '/api/:path*',        destination: `${api}/:path*`,      },    ];  },};module.exports = nextConfig;
+6.2. app/stocks/page.tsx (종목 목록 + 스크리너)
+기존 코드 그대로 사용하되, “스크리너 저장” 버튼만 추가한다고 가정:
+현재 필터 상태를 conditions 객체로 구성
+“스크리너 저장” 클릭 시 POST /api/stocks/screeners 호출
+저장된 스크리너 목록을 GET /api/stocks/screeners?createdBy=user1 로 불러와 드롭다운으로 표시
+구체 코드는 기존 StocksPage 에서 확장하면 되므로, Cursor 에게는 “이 로직을 추가해달라”고 요청하는 형태로 충분합니다.
+6.3. app/stocks/[code]/page.tsx (종목 상세)
+기존 차트 + 뉴스 + 컨센서스 코드 그대로 사용
+UI 레이아웃:
+상단: 종목 기본 정보
+차트
+주요 지표 카드
+재무/수익성
+뉴스
+컨센서스
+6.4. app/stocks/[code]/chart.tsx
+기존 Lightweight Charts 코드 그대로 사용.
+7. 구현 우선순위 (Cursor 에게 지시할 순서)
+Cursor 에게 작업을 요청할 때 다음 순서로 프롬프트를 나누면 좋습니다.
+프로젝트 스캐폴딩
+위 디렉터리 구조 + docker-compose.yml, .env.example, package.json 등 생성
+백엔드 핵심
+엔티티 6 개 생성
+StocksService, StocksController 구현
+GET /stocks, GET /stocks/:code, GET /stocks/:code/quotes 테스트
+프론트엔드 핵심
+/stocks 목록 + 필터
+/stocks/[code] 상세 + 차트
+데이터 연동 스크립트
+ingest-stocks, ingest-quotes, ingest-fundamentals 구현
+더미 데이터로 DB 채워보기
+뉴스/컨센서스
+News, Consensus 엔티티 + API
+프론트엔드 뉴스/컨센서스 섹션 추가
+고도 스크리너
+UserScreener 엔티티 + CRUD API
+프론트에서 스크리너 저장/불러오기 UI 추가
+이 명세서를 그대로 Cursor 에게 “이 설계대로 프로젝트를 만들어줘”라고 주면, 일관된 구조로 코드를 생성해 줄 것입니다.원하면 이 내용을 더 압축해서 “프롬프트 템플릿” 버전으로도 만들어 드릴 수 있습니다.

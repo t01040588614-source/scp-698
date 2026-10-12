@@ -1,0 +1,74 @@
+# PostgreSQL 16 + FastAPI + Next.js (전체 스택)
+# 사용: copy .env.example .env  →  docker compose up --build
+# 또는: 주식대시보드_Docker.bat
+name: krstock
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-krstock}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-krstockpass}
+      POSTGRES_DB: ${POSTGRES_DB:-krstock}
+    ports:
+      - "5432:5432"
+    volumes:
+      - krstock_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-krstock} -d ${POSTGRES_DB:-krstock}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 8
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./stock-backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://krstock:krstockpass@db:5432/krstock}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-jwt-secret-change-in-production-32b}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}
+      DEBUG: "false"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=4)",
+        ]
+      interval: 15s
+      timeout: 6s
+      start_period: 45s
+      retries: 5
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./my-frontend
+      dockerfile: Dockerfile
+      args:
+        STOCK_API_PROXY: ${STOCK_API_PROXY:-http://api:8000}
+    environment:
+      STOCK_API_PROXY: ${STOCK_API_PROXY:-http://api:8000}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:8000/api/v1}
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://127.0.0.1:8000/api/v1/ws/stocks}
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  krstock_db_data:

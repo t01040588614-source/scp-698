@@ -1,0 +1,31 @@
+import type { DrawToolId, PriceScaleModeId } from "@/lib/chartDrawTools";
+
+export type ChartStreamToolsBinding = {
+  activeDrawTool: DrawToolId;
+  onDrawTool: (id: DrawToolId) => void;
+  drawingsHidden: boolean;
+  measureHint: string | null;
+  priceScaleMode: PriceScaleModeId;
+  onPriceScaleMode: (mode: PriceScaleModeId) => void;
+  showSma20: boolean;
+  onToggleSma20: () => void;
+  settingsOpen: boolean;
+  onToggleSettings: () => void;
+  showVolume: boolean;
+  onToggleVolume: () => void;
+  showGrid: boolean;
+  onToggleGrid: () => void;
+  onCompare: () => void;
+  onFinancials: () => void;
+  onTemplates: () => void;
+  onSnapshot: () => void;
+  onSaveImage: () => void;
+  onResetLayout: () => void;
+  onFullscreen: () => void;
+  onUndoDrawing: () => void;
+  onPriceAlert: () => void;
+  onAiAnalysis: () => void;
+  onGoToDate: () => void;
+  onPanChart: (direction: -1 | 1) => void;
+  onZoomChart: (direction: -1 | 1) => void;
+};

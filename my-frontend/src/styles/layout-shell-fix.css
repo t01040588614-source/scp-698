@@ -1,0 +1,141 @@
+/* Shell·그리드·Tailwind 이후 레이아웃 안정화 */
+
+.primary-navigation-bar {
+  display: none;
+  width: 100%;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--header-border);
+}
+
+@media (min-width: 768px) {
+  .primary-navigation-bar {
+    display: block;
+  }
+}
+
+[data-theme="light"] .primary-navigation-bar {
+  background: var(--chrome-bg-elevated);
+  border-bottom-color: var(--chrome-border);
+}
+
+.primary-navigation-bar .primary-navigation {
+  background: transparent;
+  border-bottom: none;
+  min-height: 44px;
+}
+
+.market-ticker-bleed {
+  width: 100%;
+  background: var(--ticker-bleed-bg, var(--market-rail-bg, var(--page-background)));
+  border-bottom: 1px solid var(--border-color);
+}
+
+.market-ticker-wrap,
+.market-ticker-bleed .market-ticker {
+  background: transparent;
+}
+
+.market-ticker-bleed .market-ticker {
+  padding-inline: 0;
+}
+
+main.app-main {
+  min-width: 0;
+  overflow-x: clip;
+  overflow-y: visible;
+}
+
+.inv-layout-3col,
+.inv-split-main,
+.inv-split-aside,
+.inv-market-board,
+.page-section--market {
+  min-width: 0;
+}
+
+/* Tailwind preflight 이후 표·버튼 기본 */
+.inv-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.inv-table th,
+.inv-table td {
+  vertical-align: middle;
+}
+
+.btn-primary,
+button.btn-primary {
+  color: #fff;
+  background: var(--primary);
+  border: 0;
+}
+
+@media (max-width: 1023px) {
+  .inv-market-board .inv-layout-3col,
+  .inv-market-board .inv-layout-3col.inv-layout-3col--no-rail,
+  .inv-layout-3col:not(.inv-layout-3col--keep-rail) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .inv-market-board .inv-split-aside,
+  .inv-split-aside {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .inv-split-aside .inv-sidebar-stack {
+    position: static;
+  }
+
+  .inv-tool-rail {
+    position: static;
+    max-height: none;
+  }
+}
+
+.inv-layout-3col,
+.inv-market-board,
+.inv-market-board .inv-layout-3col {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .inv-layout-3col--sticky-sides .inv-split-main .inv-market-board,
+  .inv-layout-3col--sticky-sides .inv-split-main .inv-equity-page {
+    min-width: 0;
+  }
+
+  .inv-split-aside .inv-sidebar-stack {
+    position: relative;
+    min-width: 0;
+  }
+}
+
+.inv-split-main .inv-table-wrap {
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.inv-split-aside .inv-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-shadow: 0 1px 0 var(--border-color);
+}
+
+@media (max-width: 767px) {
+  .inv-page-head--band {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .market-ticker-bleed::before,
+  .market-ticker-bleed::after {
+    width: 16px;
+  }
+}

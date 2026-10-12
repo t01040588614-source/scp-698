@@ -1,0 +1,765 @@
+/* 시장 보드 — Investing 스타일: 표가 가로를 꽉 채움, 여백 최소 */
+
+@media (min-width: 1280px) {
+  .container.page-section--market {
+    width: calc(100% - 12px);
+    max-width: none;
+    padding-inline: 0;
+  }
+}
+
+.page-section--market {
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-5);
+}
+
+.inv-market-board {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  overflow: visible;
+}
+
+.inv-market-board-top .inv-index-strip {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.inv-market-board-top .market-board-meta {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border-color);
+  background: linear-gradient(180deg, var(--surface-muted) 0%, var(--surface) 100%);
+  padding: 12px 16px;
+  gap: 8px 12px;
+}
+
+.inv-market-board .inv-layout-3col {
+  border: none;
+  width: 100%;
+  overflow: visible;
+  height: auto;
+  max-height: none;
+  grid-template-columns: 48px minmax(0, 1fr) minmax(300px, 340px);
+}
+
+.inv-market-board .inv-layout-3col.inv-layout-3col--no-rail {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+}
+
+@media (min-width: 1536px) {
+  .inv-market-board .inv-layout-3col {
+    grid-template-columns: 48px minmax(0, 1fr) minmax(320px, 380px);
+  }
+
+  .inv-market-board .inv-layout-3col.inv-layout-3col--no-rail {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  }
+}
+
+.inv-market-board .inv-split-main {
+  min-width: 0;
+  width: 100%;
+}
+
+.inv-market-board .inv-split-aside {
+  min-width: 0;
+  padding: var(--space-2);
+  border-left: 1px solid var(--border-color);
+  background: var(--surface-muted);
+}
+
+@media (min-width: 1024px) {
+  .inv-market-board .inv-split-aside .inv-investing-chart,
+  .inv-market-board .inv-split-aside .inv-sidebar-chart-block {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .inv-market-board .inv-split-aside .inv-investing-chart-canvas {
+    width: 100% !important;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 1023px) {
+  .inv-market-board .inv-layout-3col,
+  .inv-market-board .inv-layout-3col.inv-layout-3col--no-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .inv-market-board .inv-split-aside {
+    max-height: none;
+    border-left: 0;
+    border-top: 1px solid var(--border-color);
+    padding-top: var(--space-3);
+  }
+
+  .inv-market-board .inv-split-main {
+    border-right: 0;
+  }
+}
+
+.inv-market-board .inv-market-main-stack {
+  width: 100%;
+}
+
+.inv-market-board .inv-table-panel.inv-investing-panel {
+  border: none;
+}
+
+.inv-market-board .inv-sector-panel {
+  border: none;
+  border-top: 1px solid var(--border-color);
+}
+
+.inv-market-board .inv-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.inv-table.inv-table--investing-exact {
+  table-layout: auto;
+  width: 100%;
+  min-width: 920px;
+}
+
+.inv-table--investing-exact .inv-col-vol {
+  min-width: 72px;
+  text-align: right;
+}
+
+/* 3열 레이아웃에서도 가격 탭 전체 컬럼 표시 (767px 미만만 축소) */
+.inv-table--investing-exact .inv-hide-sm {
+  display: table-cell;
+}
+
+.inv-table--investing-exact .inv-col-check {
+  width: 34px;
+}
+
+.inv-table--investing-exact .inv-col-star {
+  width: 38px;
+}
+
+.inv-table--investing-exact .inv-col-name {
+  width: 24%;
+}
+
+.inv-table--investing-exact th:not(.inv-col-check):not(.inv-col-star):not(.inv-col-name),
+.inv-table--investing-exact td:not(.inv-col-check):not(.inv-col-star):not(.inv-col-name) {
+  width: auto;
+}
+
+/* ─── 토스증권 스타일 가격 표 ─── */
+.inv-table.inv-table--toss-price {
+  min-width: 1080px;
+}
+
+.inv-table--investing-exact.inv-table--toss-price thead th {
+  background: transparent;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding-top: 14px;
+  padding-bottom: 12px;
+}
+
+.inv-table--investing-exact.inv-table--toss-price tbody td {
+  padding-top: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.inv-table--toss-price tbody tr:nth-child(even) {
+  background: transparent;
+}
+
+.inv-table--toss-price tbody tr:hover,
+.inv-table--toss-price tbody tr:focus-within {
+  background: var(--surface-muted);
+}
+
+.inv-table--toss-price .inv-toss-price {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.inv-table--toss-price .inv-toss-pct {
+  min-width: 88px;
+}
+
+.inv-table--toss-price .inv-pct-badge {
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.inv-table--toss-price .inv-pct-badge.price-up {
+  color: var(--market-up);
+  background: var(--market-up-bg);
+}
+
+.inv-table--toss-price .inv-pct-badge.price-down {
+  color: var(--market-down);
+  background: var(--market-down-bg);
+}
+
+.inv-table--toss-price .inv-pct-badge.is-hot.price-up {
+  background: rgb(255 107 107 / 22%);
+}
+
+.inv-table--toss-price .inv-pct-badge.is-flat-zero {
+  color: var(--text-muted);
+  background: var(--surface-inset);
+}
+
+.inv-table--toss-price .inv-toss-turnover,
+.inv-table--toss-price .inv-toss-mcap {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.inv-table--toss-price th.inv-toss-th-price,
+.inv-table--toss-price th.inv-toss-th-pct,
+.inv-table--toss-price th.inv-toss-th-turnover,
+.inv-table--toss-price th.inv-toss-th-mcap,
+.inv-table--toss-price td.inv-toss-price,
+.inv-table--toss-price td.inv-toss-pct,
+.inv-table--toss-price td.inv-toss-turnover,
+.inv-table--toss-price td.inv-toss-mcap {
+  text-align: right;
+}
+
+.inv-toss-trade-ratio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.inv-toss-trade-ratio__side {
+  flex: 0 0 auto;
+  width: 22px;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.inv-toss-trade-ratio__buy {
+  color: var(--market-down);
+}
+
+.inv-toss-trade-ratio__sell {
+  color: var(--market-up);
+}
+
+.inv-toss-trade-ratio__bar {
+  flex: 1;
+  display: flex;
+  height: 6px;
+  min-width: 48px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-inset);
+}
+
+.inv-toss-trade-ratio__fill {
+  display: block;
+  height: 100%;
+}
+
+.inv-toss-trade-ratio__fill--buy {
+  background: var(--market-down);
+}
+
+.inv-toss-trade-ratio__fill--sell {
+  background: var(--market-up);
+}
+
+.inv-toss-sector-pill {
+  display: inline-block;
+  max-width: 120px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--surface-inset);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.inv-table--toss-price .inv-toss-ai {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  line-height: 1.45;
+  max-width: 200px;
+}
+
+.inv-table--toss-price .inv-col-name .inv-name {
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+@media (max-width: 767px) {
+  .inv-table--toss-price .inv-toss-th-ratio,
+  .inv-table--toss-price .inv-toss-th-ai,
+  .inv-table--toss-price .inv-toss-ratio,
+  .inv-table--toss-price .inv-toss-ai {
+    display: none;
+  }
+}
+
+/* ─── 사이드바  지수 (Investing 모바일 톤) ─── */
+
+.inv-sidebar-indices--live {
+  padding: 0;
+  overflow: visible;
+}
+
+.inv-sidebar-indices-body {
+  overflow: visible;
+}
+
+.inv-sidebar-index-list--live {
+  max-height: none;
+  overflow: visible;
+}
+
+.inv-sidebar-live-head {
+  padding: var(--space-2) var(--space-2) 0;
+  border-bottom: none;
+}
+
+.inv-sidebar-tabs button {
+  cursor: pointer;
+}
+
+.inv-sidebar-tabs button:not(.is-active):hover {
+  color: var(--primary);
+}
+
+.inv-sidebar-periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  padding: 6px var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.inv-sidebar-periods button {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.inv-sidebar-periods button.is-active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.inv-sidebar-chart-block {
+  position: relative;
+  padding: var(--space-2) 0 0;
+  flex-shrink: 0;
+  min-height: var(--chart-height-sidebar);
+}
+
+.inv-sidebar-chart-block .inv-sidebar-chart {
+  width: 100%;
+}
+
+.inv-sidebar-chart {
+  position: relative;
+  width: 100%;
+  height: var(--chart-height-sidebar);
+  min-height: var(--chart-height-sidebar);
+  max-height: var(--chart-height-sidebar);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.inv-sidebar-chart-y {
+  position: absolute;
+  top: 8px;
+  right: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: calc(100% - 28px);
+  font-size: 9px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.inv-sidebar-chart-x {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 8px 4px;
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.inv-sidebar-chart--empty,
+.inv-sidebar-chart-loading,
+.inv-sidebar-skeleton,
+.inv-sidebar-error {
+  padding: var(--space-4);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.inv-sidebar-chart-warn {
+  margin: 4px 0 0;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.inv-sidebar-chart-meta {
+  margin: 4px 0 0;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.inv-sidebar-index-list--live {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.inv-sidebar-index-row--btn {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+}
+
+.inv-sidebar-index-list--live .inv-sidebar-index-name {
+  flex: none;
+  min-width: 0;
+  max-width: none;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  word-break: keep-all;
+  line-height: 1.35;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.inv-sidebar-index-row--btn.is-selected {
+  background: var(--primary-muted);
+}
+
+.inv-sidebar-index-row--btn.is-flash-up,
+.inv-sidebar-index-price.is-flash-up {
+  animation: inv-price-flash-up 0.65s ease;
+}
+
+.inv-sidebar-index-row--btn.is-flash-down,
+.inv-sidebar-index-price.is-flash-down {
+  animation: inv-price-flash-down 0.65s ease;
+}
+
+@keyframes inv-price-flash-up {
+  0% {
+    background: rgb(214 64 69 / 18%);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+@keyframes inv-price-flash-down {
+  0% {
+    background: rgb(0 107 246 / 15%);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.inv-sidebar-index-metrics {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px 10px;
+  width: 100%;
+  font-size: 11px;
+}
+
+.inv-sidebar-index-list--live .inv-sidebar-index-metrics {
+  font-size: 10px;
+}
+
+.inv-sidebar-index-price {
+  min-width: 0;
+  text-align: right;
+  font-weight: 700;
+}
+
+.inv-sidebar-index-list--live .inv-sidebar-index-price {
+  margin-right: auto;
+  text-align: left;
+  font-size: 12px;
+}
+
+.inv-index-clock {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  flex-shrink: 0;
+}
+
+.inv-index-clock.is-up {
+  color: var(--live);
+}
+
+.inv-index-clock.is-down {
+  color: var(--market-up);
+}
+
+.inv-table--investing-exact tbody tr.is-flash-up {
+  animation: inv-row-flash-up 0.65s ease;
+}
+
+.inv-table--investing-exact tbody tr.is-flash-down {
+  animation: inv-row-flash-down 0.65s ease;
+}
+
+.inv-table--investing-exact td.inv-last-flash.is-flash-up,
+.inv-table--investing-exact td.inv-last.is-flash-up {
+  animation: inv-price-flash-up 0.65s ease;
+}
+
+.inv-table--investing-exact td.inv-last-flash.is-flash-down,
+.inv-table--investing-exact td.inv-last.is-flash-down {
+  animation: inv-price-flash-down 0.65s ease;
+}
+
+@keyframes inv-row-flash-up {
+  0% {
+    background: rgb(214 64 69 / 12%);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.inv-live-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--live, #0d9488);
+  background: rgb(13 148 136 / 10%);
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.inv-live-badge--inline {
+  margin-left: 6px;
+}
+
+.inv-quote-live {
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+.inv-quote-price.is-flash-up,
+.inv-index-strip-price.is-flash-up,
+.chart-price.is-flash-up,
+.watchlist-item .is-flash-up,
+.inv-widget-row .is-flash-up {
+  animation: inv-price-flash-up 0.65s ease;
+}
+
+.inv-quote-price.is-flash-down,
+.inv-index-strip-price.is-flash-down,
+.chart-price.is-flash-down,
+.watchlist-item .is-flash-down,
+.inv-widget-row .is-flash-down {
+  animation: inv-price-flash-down 0.65s ease;
+}
+
+.watchlist-item--link {
+  display: flex;
+  text-decoration: none;
+  color: inherit;
+}
+
+.watchlist-item--link:hover {
+  background: var(--surface-muted, rgb(0 0 0 / 3%));
+}
+
+@keyframes inv-row-flash-down {
+  0% {
+    background: rgb(0 107 246 / 10%);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.inv-sidebar-live-meta {
+  padding: 6px 10px 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.inv-market-empty-main {
+  min-height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  border-top: 1px solid var(--border-color);
+  background: var(--surface);
+}
+
+.inv-news-sentiment {
+  margin-right: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.inv-accounts-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+
+.inv-screener.panel {
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border-color);
+  background: var(--surface);
+}
+
+.inv-screener-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.inv-screener-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.inv-screener-grid input,
+.inv-screener-grid select {
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.inv-screener-saved-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.inv-screener-saved-row .search-result-item {
+  flex: 1;
+}
+
+.inv-screener-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.inv-quote-extras {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+@media (min-width: 768px) {
+  .inv-quote-extras {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.inv-col-rank {
+  width: 2.25rem;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-align: center;
+  vertical-align: middle;
+}
+
+.inv-col-rank.price-up {
+  color: var(--market-up);
+}
+
+.inv-col-rank.price-down {
+  color: var(--market-down);
+}
+
+/* 실시간 순위 reorder — @formkit/auto-animate FLIP */
+.inv-smooth-rank > tr,
+.inv-smooth-rank > li {
+  will-change: transform;
+}
+
+.inv-smooth-rank > tr {
+  transition: background-color 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inv-smooth-rank > tr,
+  .inv-smooth-rank > li {
+    will-change: auto;
+    transition: none !important;
+  }
+}

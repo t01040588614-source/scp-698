@@ -1,0 +1,165 @@
+/* 토스증권형 국내 종목 상세 */
+
+.toss-quote-page {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-4) var(--space-8);
+}
+
+.toss-quote-error {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.toss-quote-header {
+  margin-bottom: var(--space-4);
+}
+
+.toss-quote-back {
+  display: inline-block;
+  margin-bottom: var(--space-3);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.toss-quote-back:hover {
+  color: var(--primary);
+}
+
+.toss-quote-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.toss-quote-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.toss-quote-name-wrap .toss-quote-name {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.toss-quote-venue {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.toss-quote-price-block {
+  margin-top: var(--space-4);
+}
+
+.toss-quote-price {
+  display: block;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+
+.toss-quote-chg {
+  display: block;
+  margin-top: 6px;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.toss-quote-chart {
+  margin-top: var(--space-2);
+}
+
+.toss-quote-chart .inv-investing-chart--toss {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.inv-stream-chart--toss .inv-stream-main {
+  min-width: 0;
+}
+
+.toss-stream-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.toss-stream-toolbar-label {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.toss-stream-intraday {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.toss-stream-chip {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--surface-inset);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.toss-stream-chip.is-active {
+  color: var(--primary);
+  background: var(--primary-muted);
+}
+
+.inv-stream-stage-wrap--toss {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.toss-stream-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.toss-stream-range {
+  flex: 1 1 auto;
+  min-width: 52px;
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.toss-stream-range.is-active {
+  color: var(--text-primary);
+  background: var(--surface-muted);
+}
+
+.toss-stream-range:hover {
+  color: var(--text-primary);
+}

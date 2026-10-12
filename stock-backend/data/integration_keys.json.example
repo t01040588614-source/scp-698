@@ -1,0 +1,11 @@
+{
+  "KIS_APP_KEY": "",
+  "KIS_APP_SECRET": "",
+  "ALPHA_VANTAGE_API_KEY": "",
+  "FINNHUB_API_KEY": "",
+  "GOOGLE_CLIENT_ID": "",
+  "GOOGLE_CLIENT_SECRET": "",
+  "KAKAO_REST_API_KEY": "",
+  "NEWS_API_KEY": "",
+  "FCM_SERVER_KEY": ""
+}

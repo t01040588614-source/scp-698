@@ -1,0 +1,262 @@
+/* ─── Investing.com 라이트 (kr equities 톤) ─── */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --max-width: 1360px;
+  --content-gutter: 16px;
+
+  /* Investing: 회색 페이지 + 흰 카드 */
+  --page-background: #f3f3f3;
+  --page-background-gradient: none;
+
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-muted: #f5f7fa;
+  --surface-hover: #eef2f7;
+  --surface-inset: #eceff3;
+
+  --text-primary: #232526;
+  --text-secondary: #444b54;
+  --text-muted: #6b7280;
+  --text-disabled: #9ca3af;
+  --text-inverse: #ffffff;
+
+  --border-color: #e6e9ef;
+  --border-strong: #d1d5db;
+  --border-subtle: #eef0f4;
+
+  /* Investing 브랜드 블루 */
+  --primary: #006bf6;
+  --primary-hover: #0056c8;
+  --primary-light: #e8f2ff;
+  --primary-muted: #f0f7ff;
+
+  --inv-brand: #2563eb;
+  --inv-link: #2563eb;
+  --brand-accent: #2563eb;
+  --highlight-bar-bg: linear-gradient(90deg, #eef3f9 0%, #f8fafc 50%, #eef3f9 100%);
+  --highlight-bar-text: #334155;
+
+  /* 한국 시장 관례 (Investing KR) */
+  --market-up: #d64045;
+  --market-up-bg: #fdecef;
+  --market-down: #006bf6;
+  --market-down-bg: #e8f2ff;
+
+  --positive: #00855a;
+  --positive-light: #e6f6ef;
+  --negative: #d64045;
+  --negative-light: #fdecef;
+  --warning: #e67e22;
+  --warning-light: #fff4e6;
+  --info: #006bf6;
+  --info-light: #e8f2ff;
+
+  --live: #00855a;
+  --live-bg: #e6f6ef;
+
+  /* 앱 크롬: 라이트 — 흰 헤더 + 연한 네비 띠 */
+  --chrome-bg: #ffffff;
+  --chrome-bg-elevated: #f8fafc;
+  --chrome-border: #e6e9ef;
+  --chrome-text: #232526;
+  --chrome-text-muted: #64748b;
+  --chrome-link: #006bf6;
+
+  --header-bg: var(--chrome-bg);
+  --header-border: var(--chrome-border);
+  --header-shadow: var(--shadow-sm);
+
+  --nav-active-indicator: #006bf6;
+  --bottom-nav-bg: #ffffff;
+
+  --overlay: rgb(35 37 38 / 45%);
+  --skeleton-base: #eceff3;
+  --skeleton-shine: rgb(255 255 255 / 80%);
+
+  --shadow-sm: 0 1px 2px rgb(35 37 38 / 6%);
+  --shadow-md: 0 4px 12px rgb(35 37 38 / 8%);
+  --shadow-lg: 0 8px 24px rgb(35 37 38 / 10%);
+
+  --focus-ring: 0 0 0 3px rgb(0 107 246 / 25%);
+
+  --scrollbar-track: #f3f3f3;
+  --scrollbar-thumb: #c5cad3;
+  --scrollbar-thumb-hover: #9aa3b2;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+
+  --header-height: 56px;
+  --mobile-header-height: 52px;
+  --bottom-navigation-height: 56px;
+  /** 3열 레이아웃 — 우측 위젯·도구 레일 sticky 기준 */
+  --layout-sticky-top: 12px;
+  --layout-sticky-gutter: var(--space-3);
+
+  --chart-height-default: 420px;
+  --chart-height-sidebar: 268px;
+  --chart-height-hub: 520px;
+  --chart-height-panel: 560px;
+  --chart-height-mobile: 340px;
+  --chart-spark-w: 64px;
+  --chart-spark-h: 28px;
+  --chart-mini-spark-w: 120px;
+  --chart-mini-spark-h: 36px;
+
+  --chart-grid: #eceff3;
+  --chart-axis: #6b7280;
+  --ticker-border: #e6e9ef;
+
+  --inv-table-header-bg: #f5f7fa;
+  --inv-table-row-alt: #fafbfc;
+  --inv-accent-bar: #006bf6;
+
+  --ticker-bleed-bg: linear-gradient(180deg, rgb(248 250 252) 0%, var(--surface-muted) 100%);
+  --index-strip-bg: linear-gradient(180deg, #f8fafc 0%, var(--surface) 100%);
+  --tool-rail-bg: #fafafa;
+  --sector-panel-head-bg: #fafbfc;
+  --highlight-bar-inset: rgb(255 255 255 / 80%);
+  --market-status-inset: rgb(255 255 255 / 60%);
+  --ticker-card-shadow: 0 1px 2px rgb(15 23 42 / 6%), 0 0 0 1px rgb(255 255 255 / 60%) inset;
+  --ticker-card-shadow-hover: 0 4px 14px rgb(15 23 42 / 8%);
+  --index-strip-item-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+
+  --session-open-border: #99f6e4;
+  --session-open-bg: linear-gradient(180deg, #fff 0%, #ecfdf5 100%);
+  --session-open-strong: #0f766e;
+  --session-pre-border: #fde68a;
+  --session-pre-bg: linear-gradient(180deg, #fff 0%, #fffbeb 100%);
+  --session-pre-strong: #b45309;
+
+  --market-rail-bg: linear-gradient(180deg, var(--surface) 0%, var(--surface-muted) 100%);
+  --market-status-bg: linear-gradient(180deg, var(--surface) 0%, var(--surface-muted) 100%);
+  --ticker-live-bg: #ecfdf5;
+  --ticker-live-text: #0f766e;
+  --ticker-pct-neutral-bg: rgb(15 23 42 / 5%);
+  --quick-links-bg: rgb(15 23 42 / 4%);
+}
+
+/* ─── Dark (선택 시) ─── */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --page-background: #0f1419;
+  --page-background-gradient: none;
+
+  --surface: #1a2332;
+  --surface-elevated: #212d3d;
+  --surface-muted: #151c27;
+  --surface-hover: #243044;
+  --surface-inset: #0d1219;
+
+  --text-primary: #f3f4f6;
+  --text-secondary: #c8d0dc;
+  --text-muted: #8b95a5;
+  --text-disabled: #5c6778;
+  --text-inverse: #0f1419;
+
+  --border-color: #2d3a4d;
+  --border-strong: #3d4d63;
+  --border-subtle: #1f2937;
+
+  --primary: #4d9dff;
+  --primary-hover: #7ab8ff;
+  --primary-light: rgb(77 157 255 / 15%);
+  --primary-muted: rgb(77 157 255 / 8%);
+
+  --inv-brand: #4d9dff;
+  --inv-link: #4d9dff;
+
+  --market-up: #ff6b6b;
+  --market-up-bg: rgb(255 107 107 / 12%);
+  --market-down: #4d9dff;
+  --market-down-bg: rgb(77 157 255 / 12%);
+
+  --positive: #34d399;
+  --positive-light: rgb(52 211 153 / 12%);
+  --negative: #ff6b6b;
+  --negative-light: rgb(255 107 107 / 12%);
+  --warning: #fbbf24;
+  --warning-light: rgb(251 191 36 / 12%);
+  --info: #38bdf8;
+  --info-light: rgb(56 189 248 / 12%);
+
+  --live: #34d399;
+  --live-bg: rgb(52 211 153 / 12%);
+
+  --header-bg: #151c27;
+  --header-border: #2d3a4d;
+  --header-shadow: 0 1px 0 #2d3a4d;
+
+  --nav-active-indicator: #4d9dff;
+  --bottom-nav-bg: #151c27;
+
+  --overlay: rgb(0 0 0 / 62%);
+  --skeleton-base: #1c2738;
+  --skeleton-shine: rgb(255 255 255 / 8%);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 35%);
+  --shadow-md: 0 10px 28px rgb(0 0 0 / 45%);
+  --shadow-lg: 0 20px 48px rgb(0 0 0 / 55%);
+
+  --focus-ring: 0 0 0 3px rgb(77 157 255 / 28%);
+
+  --scrollbar-track: #0f1419;
+  --scrollbar-thumb: #334155;
+  --scrollbar-thumb-hover: #475569;
+
+  --chart-grid: #243044;
+  --chart-axis: #64748b;
+  --ticker-border: #2d3a4d;
+
+  --inv-table-header-bg: #151c27;
+  --inv-table-row-alt: rgb(255 255 255 / 2%);
+  --inv-accent-bar: #4d9dff;
+
+  --highlight-bar-bg: #151c27;
+  --highlight-bar-text: #c8d0dc;
+  --brand-accent: #4d9dff;
+
+  --chrome-bg: #151c27;
+  --chrome-bg-elevated: #1a2332;
+  --chrome-border: #2d3a4d;
+  --chrome-text: #f3f4f6;
+  --chrome-text-muted: #94a3b8;
+  --chrome-link: #93c5fd;
+
+  --ticker-bleed-bg: var(--page-background);
+  --index-strip-bg: var(--page-background);
+  --market-rail-bg: var(--page-background);
+  --market-status-bg: var(--page-background);
+  --ticker-live-bg: rgb(52 211 153 / 16%);
+  --ticker-live-text: #34d399;
+  --ticker-pct-neutral-bg: rgb(255 255 255 / 6%);
+  --quick-links-bg: rgb(255 255 255 / 6%);
+  --tool-rail-bg: var(--surface-muted);
+  --sector-panel-head-bg: var(--surface-muted);
+  --highlight-bar-inset: rgb(255 255 255 / 4%);
+  --market-status-inset: rgb(255 255 255 / 4%);
+  --ticker-card-shadow: 0 1px 3px rgb(0 0 0 / 35%), 0 0 0 1px rgb(255 255 255 / 5%) inset;
+  --ticker-card-shadow-hover: 0 4px 14px rgb(0 0 0 / 45%);
+  --index-strip-item-shadow: 0 1px 3px rgb(0 0 0 / 30%);
+
+  --session-open-border: rgb(52 211 153 / 35%);
+  --session-open-bg: linear-gradient(180deg, rgb(52 211 153 / 14%) 0%, rgb(52 211 153 / 6%) 100%);
+  --session-open-strong: #34d399;
+  --session-pre-border: rgb(251 191 36 / 35%);
+  --session-pre-bg: linear-gradient(180deg, rgb(251 191 36 / 14%) 0%, rgb(251 191 36 / 6%) 100%);
+  --session-pre-strong: #fbbf24;
+}

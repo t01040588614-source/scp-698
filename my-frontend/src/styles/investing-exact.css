@@ -1,0 +1,596 @@
+/* Investing.com kr/equities/south-korea — 레이아웃·표 톤 일치 */
+
+.inv-equities-page {
+  background: var(--page-background);
+}
+
+.inv-equities-page .inv-page-head {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.app-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--chrome-text) !important;
+  text-decoration: none;
+  max-width: min(240px, 46vw);
+  border-radius: var(--radius-sm);
+  transition: opacity 0.15s ease;
+}
+
+.app-logo:hover {
+  opacity: 0.92;
+}
+
+.app-logo:focus-visible {
+  outline: 2px solid var(--chrome-link, var(--primary));
+  outline-offset: 3px;
+}
+
+.app-logo-mark {
+  flex-shrink: 0;
+  display: flex;
+  line-height: 0;
+  filter: drop-shadow(0 2px 6px rgb(37 99 235 / 35%));
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.app-logo:hover .app-logo-mark {
+  transform: translateY(-1px);
+  filter: drop-shadow(0 4px 10px rgb(37 99 235 / 42%));
+}
+
+.app-logo-svg {
+  display: block;
+}
+
+.app-logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.app-logo-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-shadow: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.app-logo-name-lead {
+  color: var(--chrome-text);
+}
+
+.app-logo-name-accent {
+  color: var(--chrome-link, #93c5fd);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.app-logo-tag {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--chrome-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.92;
+}
+
+.app-logo--on-brand {
+  color: #fff !important;
+  max-width: none;
+}
+
+.app-logo--on-brand .app-logo-name-lead {
+  color: #fff;
+}
+
+.app-logo--on-brand .app-logo-name-accent {
+  color: #e0f2fe;
+  font-weight: 800;
+}
+
+.app-logo--on-brand .app-logo-mark {
+  filter: drop-shadow(0 2px 8px rgb(0 0 0 / 25%));
+}
+
+[data-theme="dark"] .app-logo-name-lead {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .app-logo-name-accent {
+  color: #7ec0ff;
+}
+
+[data-theme="dark"] .app-logo-tag {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+[data-theme="light"] .app-logo-mark {
+  filter: drop-shadow(0 2px 5px rgb(15 23 42 / 28%));
+}
+
+.app-highlight-bar {
+  background: var(--highlight-bar-bg);
+  color: var(--highlight-bar-text, #334155);
+  font-size: 13px;
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: inset 0 1px 0 var(--highlight-bar-inset);
+}
+
+.app-highlight-bar-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 36px;
+  padding-block: 7px;
+}
+
+.app-highlight-bar a {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.app-highlight-bar a:hover {
+  background: var(--surface-muted);
+  border-color: var(--primary);
+}
+
+/* 지수 스트립 상세 — app-polish.css (가로 스크롤 카드) */
+
+.inv-index-strip-name {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inv-table-panel.inv-investing-panel {
+  border: 1px solid var(--border-color);
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--surface);
+}
+
+.inv-investing-panel .inv-table-filters {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.inv-investing-panel .inv-view-tabs {
+  padding-inline: var(--space-4);
+  padding-bottom: var(--space-2);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.inv-investing-panel .inv-view-tab {
+  margin-bottom: 0;
+  padding: 10px 14px 12px;
+}
+
+.inv-investing-panel .inv-view-tab.is-active {
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
+  font-weight: 800;
+}
+
+.inv-investing-panel .inv-filter-chips {
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+.inv-table.inv-table--investing-exact {
+  min-width: 100%;
+  font-size: 12px;
+}
+
+.inv-table--investing-exact thead th {
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--inv-table-header-bg);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.inv-table--investing-exact tbody td {
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.inv-table--investing-exact tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+.inv-table--investing-exact tbody tr:focus-within {
+  background: var(--surface-hover);
+  outline: none;
+}
+
+.inv-table--investing-exact .inv-name-link--with-logo {
+  gap: 10px;
+}
+
+.inv-table--investing-exact .inv-stock-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+}
+
+.inv-table--investing-exact .inv-name {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--inv-link, var(--primary));
+}
+
+.inv-table--investing-exact .inv-name:hover {
+  text-decoration: underline;
+}
+
+.inv-table--investing-exact .inv-last,
+.inv-table--investing-exact .inv-chg,
+.inv-table--investing-exact .inv-pct-plain {
+  font-weight: 400;
+}
+
+.inv-table--investing-exact td.tabular:not(.inv-col-name) {
+  font-variant-numeric: tabular-nums;
+}
+
+.inv-investing-panel .inv-table-footer {
+  padding: var(--space-3) var(--space-4);
+  font-size: 11px;
+  background: var(--surface-muted);
+  border-top: 1px solid var(--border-color);
+}
+
+/* ─── Investing.com news feed (stock-market-news) ─── */
+.inv-news-panel {
+  overflow: hidden;
+}
+
+.inv-news-panel-head {
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.inv-news-panel-title {
+  margin: 0 0 var(--space-1);
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.inv-news-panel-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.inv-news-tabs {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: thin;
+}
+
+.inv-news-tabs .inv-view-tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.inv-news-feed {
+  min-height: 200px;
+  background: var(--surface);
+}
+
+.inv-news-feed-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.inv-news-row {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.inv-news-row-link {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 14px var(--space-4);
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.12s ease;
+}
+
+.inv-news-row-link:hover {
+  background: var(--surface-hover);
+}
+
+.inv-news-row-link:hover .inv-news-row-title {
+  color: var(--inv-link, var(--primary));
+}
+
+.inv-news-row-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.inv-news-row-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--text-primary);
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.inv-news-row-meta {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.inv-news-row-media {
+  flex: 0 0 112px;
+  width: 112px;
+  height: 84px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--surface-muted);
+}
+
+.inv-news-row-image {
+  width: 112px !important;
+  height: 84px !important;
+  object-fit: cover;
+}
+
+.inv-news-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.inv-news-pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.inv-news-page-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.inv-news-page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.inv-news-page-info {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 767px) {
+  .inv-news-row-link {
+    padding: 12px var(--space-3);
+    gap: var(--space-3);
+  }
+
+  .inv-news-row-title {
+    font-size: 14px;
+    -webkit-line-clamp: 4;
+  }
+
+  .inv-news-row-media {
+    flex-basis: 92px;
+    width: 92px;
+    height: 69px;
+  }
+
+  .inv-news-row-image {
+    width: 92px !important;
+    height: 69px !important;
+  }
+}
+
+.inv-sector-active {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  align-self: center;
+}
+
+.inv-portfolio-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.inv-portfolio-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border: 1px solid var(--border-color);
+  background: var(--surface);
+  margin-bottom: var(--space-4);
+}
+
+@media (max-width: 768px) {
+  .inv-portfolio-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.inv-portfolio-summary-card {
+  padding: var(--space-4) var(--space-5);
+  border-right: 1px solid var(--border-color);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-muted) 100%);
+  position: relative;
+}
+
+.inv-portfolio-summary-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary) 0%, transparent 100%);
+  opacity: 0.35;
+}
+
+.inv-portfolio-summary-card:last-child {
+  border-right: none;
+}
+
+.inv-portfolio-summary-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.inv-portfolio-summary-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.inv-portfolio-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--border-color);
+  background: var(--surface);
+}
+
+@media (max-width: 1024px) {
+  .inv-portfolio-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.inv-portfolio-split > section {
+  border-right: 1px solid var(--border-color);
+}
+
+.inv-portfolio-split > section:last-child {
+  border-right: none;
+}
+
+.inv-portfolio-panel-head {
+  padding: var(--space-4);
+  font-size: 14px;
+  font-weight: 800;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.inv-portfolio-empty {
+  padding: var(--space-8);
+  text-align: center;
+  border: 1px solid var(--border-color);
+  background: var(--surface);
+}
+
+.inv-layout-3col {
+  grid-template-columns: 44px minmax(0, 1fr) minmax(280px, 320px);
+  gap: 0;
+  border: 1px solid var(--border-color);
+  background: var(--surface);
+}
+
+@media (min-width: 1280px) {
+  .inv-layout-3col {
+    grid-template-columns: 48px minmax(0, 1fr) minmax(300px, 360px);
+  }
+}
+
+.inv-split-main {
+  border-right: 1px solid var(--border-color);
+}
+
+.inv-split-aside {
+  padding: var(--space-3);
+  background: var(--surface);
+  overflow: visible;
+  max-height: none;
+}
+
+.inv-tool-rail {
+  border: 0;
+  border-right: 1px solid var(--border-color);
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--tool-rail-bg);
+}
+
+[data-theme="light"] .desktop-actions .app-header-cta {
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff !important;
+  background: var(--brand-accent, var(--primary));
+  border-radius: 999px;
+}
+
+[data-theme="light"] .desktop-actions .app-header-cta:hover {
+  background: var(--primary-hover);
+}
+
+[data-theme="light"] .header-inner .search-form button {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-weight: 600;
+}

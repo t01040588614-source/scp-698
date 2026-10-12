@@ -1,0 +1,138 @@
+.container {
+  width: min(calc(100% - var(--content-gutter) * 2), var(--max-width));
+  margin-inline: auto;
+}
+
+/* 넓은 화면: 양쪽 여백 최소화, 본문 거의 전폭 */
+@media (min-width: 1280px) {
+  :root,
+  [data-theme="light"] {
+    --content-gutter: 12px;
+  }
+
+  .container {
+    width: calc(100% - var(--content-gutter) * 2);
+    max-width: none;
+  }
+}
+
+@media (min-width: 1600px) {
+  :root,
+  [data-theme="light"] {
+    --content-gutter: 16px;
+  }
+}
+
+.page-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.main-content,
+.sidebar {
+  min-width: 0;
+}
+
+.panel {
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.panel-action {
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.price-up {
+  color: var(--market-up);
+}
+
+.price-down {
+  color: var(--market-down);
+}
+
+.price-flat {
+  color: var(--text-muted);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.page-section {
+  padding: var(--space-6) 0;
+}
+
+.page-section--market {
+  padding-top: var(--space-4);
+}
+
+@media (min-width: 1280px) {
+  .page-section--market .inv-index-strip {
+    margin-inline: 0;
+  }
+}
+
+.page-title {
+  margin: 0 0 var(--space-4);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+@media (max-width: 1023px) {
+  .page-layout {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: var(--space-4);
+  }
+
+  .panel {
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+}
+
+@media (max-width: 767px) {
+  .container {
+    width: calc(100% - 20px);
+  }
+
+  .page-layout {
+    display: block;
+  }
+
+  .sidebar {
+    margin-top: var(--space-3);
+  }
+
+  .panel {
+    padding: var(--space-4);
+    margin-bottom: var(--space-3);
+    border-radius: var(--radius-sm);
+  }
+
+  .panel-title {
+    font-size: 16px;
+  }
+}

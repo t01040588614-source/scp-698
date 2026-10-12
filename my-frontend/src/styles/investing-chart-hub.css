@@ -1,0 +1,628 @@
+/* Investing.com 종목 개요 — 차트 허브 (/charts) */
+
+.inv-chart-hub {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.inv-chart-hub-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 10px var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+}
+
+.inv-chart-hub-meta--inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.inv-chart-hub-meta-sep {
+  opacity: 0.5;
+}
+
+.inv-chart-hub-meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px var(--space-5);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+}
+
+.inv-chart-hub-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.inv-chart-hub-pickers label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.inv-chart-hub-pickers select {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.inv-chart-hub-title {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.inv-chart-hub-code {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.inv-chart-hub-quote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 14px;
+}
+
+.inv-chart-hub-price {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.inv-chart-hub-change {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.inv-chart-hub-meta {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.inv-chart-data-notice {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--primary-light, #e8f2ff);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+[data-theme="dark"] .inv-chart-data-notice {
+  background: rgba(77, 157, 255, 0.12);
+}
+
+.inv-chart-hub-body .inv-investing-chart {
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+/* Investing.com — 차트 + 하단 8칸 기간·수익률 한 덩어리 */
+.inv-chart-frame {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.inv-chart-frame .inv-investing-chart {
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.inv-chart-frame .inv-chart-period-strip {
+  margin: 0;
+}
+
+/* Investing.com 종목 헤더 */
+.inv-equity-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.inv-equity-hero-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.inv-equity-hero-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.inv-equity-hero-name {
+  display: block;
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.inv-equity-hero-name:hover {
+  color: var(--primary);
+}
+
+.inv-equity-hero-meta {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.inv-equity-hero-ext {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.inv-equity-hero-ext:hover {
+  text-decoration: underline;
+}
+
+.inv-equity-hero-quote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 16px;
+  margin-bottom: 10px;
+}
+
+.inv-equity-hero-price {
+  font-size: 2.125rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.inv-equity-hero-change {
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.inv-equity-hero-arrow {
+  display: inline-block;
+  margin-right: 2px;
+  font-size: 0.75em;
+}
+
+.inv-equity-hero-ai {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(90deg, #f59e0b, #a855f7, #006bf6) border-box;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.inv-equity-hero-ai-icon {
+  font-size: 14px;
+  color: #a855f7;
+}
+
+.inv-equity-hero-ai-info {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.inv-equity-hero-trade {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.inv-equity-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 28px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: filter 0.15s, transform 0.1s;
+}
+
+.inv-equity-btn:hover {
+  filter: brightness(1.06);
+}
+
+.inv-equity-btn:active {
+  transform: scale(0.98);
+}
+
+.inv-equity-btn--buy {
+  background: var(--market-up, #d64045);
+}
+
+.inv-equity-btn--sell {
+  background: var(--market-down, #006bf6);
+}
+
+.inv-investing-chart--equity-hub .inv-investing-chart-toolbar {
+  padding: 8px var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.inv-investing-chart--equity-hub .inv-investing-chart-footer--minimal {
+  display: none;
+}
+
+.inv-investing-chart-ohlc-strip {
+  position: absolute;
+  top: 6px;
+  left: 12px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  pointer-events: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.inv-investing-chart-ohlc-strip em {
+  font-style: normal;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.inv-investing-chart--equity-hub .inv-investing-chart-watermark {
+  font-size: 18px;
+  opacity: 0.22;
+  bottom: 28%;
+}
+
+.inv-chart-period-strip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--border-color);
+  background: var(--surface-muted);
+  width: 100%;
+}
+
+.inv-chart-period-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 56px;
+  padding: 8px 4px;
+  font: inherit;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 0;
+  border-right: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.inv-chart-period-cell:last-child {
+  border-right: 0;
+}
+
+.inv-chart-period-cell:hover {
+  background: var(--surface-hover);
+}
+
+.inv-chart-period-cell.is-active {
+  background: var(--primary-light);
+  box-shadow: inset 0 -3px 0 var(--primary);
+}
+
+.inv-chart-period-cell-label {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.inv-chart-period-cell-pct {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.inv-chart-period-cell-pct.is-muted {
+  color: var(--text-disabled);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .inv-chart-period-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .inv-chart-period-cell:nth-child(4n) {
+    border-right: 0;
+  }
+
+  .inv-chart-period-cell:nth-child(4) {
+    border-right: 1px solid var(--border-subtle);
+  }
+}
+
+@media (max-width: 767px) {
+  .inv-chart-hub-toolbar {
+    padding: 8px var(--space-3);
+  }
+
+  .inv-equity-hero {
+    padding: var(--space-3);
+  }
+
+  .inv-equity-hero-price {
+    font-size: 1.625rem;
+  }
+
+  .inv-equity-hero-trade {
+    flex-direction: row;
+    width: 100%;
+  }
+
+  .inv-equity-btn {
+    flex: 1;
+    min-height: 40px;
+    padding: 0 12px;
+  }
+
+  .inv-chart-period-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+[data-theme="dark"] .inv-chart-hub {
+  background: var(--surface-elevated);
+}
+
+/* 주요 통계 (Investing.com 종목 개요) */
+.inv-key-stats {
+  border-top: 1px solid var(--border-color);
+  background: var(--surface);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.inv-key-stats-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.inv-key-stats-head-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.inv-key-stats-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.inv-key-stats-help {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  cursor: help;
+}
+
+.inv-key-stats-edit {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.inv-key-stats-head-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.inv-key-stats-ai {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(90deg, #f59e0b, #a855f7, #006bf6) border-box;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.inv-key-stats-ai-icon {
+  font-size: 14px;
+  color: #a855f7;
+}
+
+.inv-key-stats-more {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.inv-key-stats-more:hover {
+  text-decoration: underline;
+}
+
+.inv-key-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.inv-key-stats-col {
+  border-right: 1px solid var(--border-subtle);
+}
+
+.inv-key-stats-col:last-child {
+  border-right: 0;
+}
+
+.inv-key-stats-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 13px;
+}
+
+.inv-key-stats-label {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.inv-key-stats-pro {
+  margin-left: 2px;
+  font-size: 9px;
+  font-weight: 800;
+  color: #ea580c;
+  vertical-align: super;
+}
+
+.inv-key-stats-value {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--primary);
+  text-align: right;
+}
+
+.inv-key-stats-unlock {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+  background: none;
+  border: 0;
+  cursor: not-allowed;
+}
+
+.inv-key-stats-lock {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--primary);
+  border-radius: 2px;
+  position: relative;
+  opacity: 0.9;
+}
+
+.inv-key-stats-lock::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -5px;
+  width: 7px;
+  height: 5px;
+  margin-left: -3.5px;
+  border: 1.5px solid var(--primary);
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+}
+
+@media (max-width: 1023px) {
+  .inv-key-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inv-key-stats-col {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .inv-key-stats {
+    padding: var(--space-3);
+  }
+
+  .inv-key-stats-head-right {
+    width: 100%;
+  }
+}
