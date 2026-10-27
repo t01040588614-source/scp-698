@@ -11,6 +11,7 @@ import ErrorState from "@/components/common/ErrorState";
 import { useEffect, useMemo, useState } from "react";
 import { useLiveSymbols } from "@/hooks/useLiveSymbols";
 import { formatPercent, formatPrice, priceClass } from "@/lib/format";
+import { wsLiveInputsForSymbol } from "@/lib/equityQuotes";
 import { mergeLiveStockQuote } from "@/lib/liveQuoteMerge";
 import type { SearchResultItem } from "@/services/searchApi";
 
@@ -51,8 +52,7 @@ function SearchResultsLiveList({ items }: { items: SearchResultItem[] }) {
   return (
     <ul className="inv-widget-list search-page-results">
       {items.map((item) => {
-        const tick = ticks[item.symbol];
-        const quote = quotes[item.symbol];
+        const { livePrice: quote, tick } = wsLiveInputsForSymbol(item.symbol, quotes, ticks);
         const live = mergeLiveStockQuote(
           {
             price: tick?.price ?? quote ?? 0,

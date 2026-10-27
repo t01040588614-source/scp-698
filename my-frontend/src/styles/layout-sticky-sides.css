@@ -1,4 +1,4 @@
-/* 양쪽 사이드 고정 — grid 슬롯은 유지, 내부만 fixed */
+/* 양쪽 사이드 — grid 슬롯 유지, JS fixed pin 없이 CSS sticky */
 
 @media (min-width: 1024px) {
   .inv-layout-3col.inv-layout-3col--sticky-sides {
@@ -26,66 +26,48 @@
     box-sizing: border-box;
   }
 
-  .inv-side-slot--rail .inv-tool-rail.is-viewport-pinned,
-  .inv-side-slot--aside .inv-split-aside.is-viewport-pinned {
-    position: fixed;
-    z-index: 25;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .inv-side-slot--rail .inv-tool-rail.is-grid-bottom-pinned,
-  .inv-side-slot--aside .inv-split-aside.is-grid-bottom-pinned {
-    position: absolute;
-    top: auto;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 5;
-    max-height: none;
-    overflow-y: auto;
-  }
-
-  /* 실시간 지수·종목 차트 — 고정된 사이드바 안에서도 상단 고정 */
-  .inv-split-aside.is-viewport-pinned .inv-sidebar-indices--live,
-  .inv-split-aside.is-viewport-pinned .inv-sidebar-realtime-chart {
+  .inv-side-slot--rail .inv-tool-rail {
     position: sticky;
-    top: 0;
-    z-index: 6;
+    top: var(--layout-sticky-top, 12px);
+    z-index: 32;
+  }
+
+  /* 우측 위젯 — sticky 금지(지수·차트가 화면에 붙어 ‘고정’처럼 보이는 문제). 본문과 함께 스크롤 */
+  .inv-side-slot--aside .inv-split-aside {
+    position: relative;
+    top: auto;
+    z-index: 0;
+    align-self: start;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .inv-split-aside .inv-sidebar-indices--live,
+  .inv-split-aside .inv-sidebar-realtime-chart {
+    position: relative;
+    top: auto;
+    z-index: 0;
     flex-shrink: 0;
-    background: var(--surface-muted);
   }
 
-  .inv-split-aside.is-viewport-pinned .inv-sidebar-indices--live {
-    box-shadow: 0 8px 20px rgb(15 23 42 / 10%);
+  .inv-split-aside .inv-sidebar-indices--live {
+    box-shadow: none;
   }
 
-  .inv-split-aside.is-viewport-pinned .inv-sidebar-chart-block {
+  .inv-split-aside .inv-sidebar-chart-block {
     flex-shrink: 0;
   }
 
-  .inv-split-aside.is-viewport-pinned .inv-investing-chart--compact {
+  .inv-split-aside .inv-investing-chart--compact {
     width: 100%;
     max-width: 100%;
   }
 
-  .inv-split-aside.is-viewport-pinned .inv-investing-chart-canvas {
+  .inv-split-aside .inv-investing-chart-canvas {
     width: 100% !important;
     max-width: 100%;
   }
 
-  /* 본문 상단 실시간 지수 스트립 */
-  .inv-layout-3col--sticky-sides .inv-split-main .inv-market-board-top {
-    position: sticky;
-    top: var(--layout-sticky-top);
-    z-index: 7;
-    background: var(--surface);
-    box-shadow: 0 4px 14px rgb(15 23 42 / 8%);
-  }
-
-  /* 종목·차트 허브 메인 실시간 차트 영역 높이 고정 */
   .inv-layout-3col--sticky-sides .inv-split-main .inv-chart-hub,
   .inv-layout-3col--sticky-sides .inv-split-main .inv-investing-chart--stream,
   .inv-layout-3col--sticky-sides .inv-split-main .inv-equity-page-main .inv-investing-chart--equity-page {

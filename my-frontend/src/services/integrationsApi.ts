@@ -53,6 +53,14 @@ export const integrationsApi = {
     api
       .post<{ ok: boolean; provider: string; phone: string }>("/sms/test", { phone, message })
       .then((r) => r.data),
+  testFcm: (deviceToken: string, title?: string, body?: string) =>
+    api
+      .post<{ ok: boolean }>("/fcm/test", {
+        device_token: deviceToken,
+        title: title ?? "MarketLens",
+        body: body ?? "FCM 연동 테스트",
+      })
+      .then((r) => r.data),
 };
 
 export type OAuthProvider = { id: string; name: string; loginUrl: string };

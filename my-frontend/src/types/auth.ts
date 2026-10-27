@@ -46,4 +46,5 @@ export interface PhoneVerifyResult {
 export interface AuthResponse {
   accessToken: string;
   tokenType: string;
+  refreshToken?: string | null;
 }

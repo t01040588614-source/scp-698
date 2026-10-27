@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useAppLinkNavigate } from "@/hooks/useAppLinkNavigate";
 import {
   sessionLabel,
   sessionTooltip,
@@ -8,6 +10,20 @@ import {
   type MarketSession,
 } from "@/lib/marketHours";
 import { useLiveMarketSessions } from "@/hooks/useLiveMarketSessions";
+
+function isMarketPillActive(pathname: string, marketHref: "/korea" | "/us"): boolean {
+  if (pathname === marketHref || pathname.startsWith(`${marketHref}/`)) {
+    return true;
+  }
+  if (marketHref === "/korea") {
+    return (
+      pathname === "/stocks" ||
+      pathname.startsWith("/stocks/") ||
+      pathname.startsWith("/quote/korea/")
+    );
+  }
+  return pathname.startsWith("/quote/us/");
+}
 
 function SessionPillButton({
   href,
@@ -17,6 +33,7 @@ function SessionPillButton({
   session,
   compact,
   ready,
+  selected,
 }: {
   href: string;
   region: MarketRegionCode;
@@ -25,13 +42,17 @@ function SessionPillButton({
   session: MarketSession;
   compact: boolean;
   ready: boolean;
+  selected: boolean;
 }) {
+  const navigate = useAppLinkNavigate();
   const status = ready ? sessionLabel(session) : "…";
   const tooltip = ready ? sessionTooltip(region, session) : "Loading market status…";
   const className = [
     "inv-session-pill",
     "inv-session-pill--btn",
+    `inv-session-pill--${region}`,
     ready ? `inv-session-pill--${session}` : "inv-session-pill--pending",
+    selected ? "inv-session-pill--selected" : "",
     compact ? "inv-session-pill--compact" : "",
   ]
     .filter(Boolean)
@@ -44,10 +65,13 @@ function SessionPillButton({
       title={tooltip}
       aria-label={`${regionLabel} ${status}, go to ${regionLabel} stocks`}
       aria-busy={!ready}
+      aria-current={selected ? "page" : undefined}
+      onClick={navigate(href)}
     >
       {compact ? (
         <>
-          {regionCode} <strong suppressHydrationWarning>{status}</strong>
+          <span className="inv-session-pill-label">{regionCode}</span>{" "}
+          <strong suppressHydrationWarning>{status}</strong>
         </>
       ) : (
         <>
@@ -68,8 +92,11 @@ export default function MarketSessionPills({
   variant = "default",
   className,
 }: MarketSessionPillsProps) {
+  const pathname = usePathname();
   const { ready, kr, us } = useLiveMarketSessions();
   const compact = variant === "compact";
+  const krSelected = isMarketPillActive(pathname, "/korea");
+  const usSelected = isMarketPillActive(pathname, "/us");
 
   return (
     <span className={className} aria-label="Market hours">
@@ -81,6 +108,7 @@ export default function MarketSessionPills({
         session={kr}
         compact={compact}
         ready={ready}
+        selected={krSelected}
       />
       <SessionPillButton
         href="/us"
@@ -90,6 +118,7 @@ export default function MarketSessionPills({
         session={us}
         compact={compact}
         ready={ready}
+        selected={usSelected}
       />
     </span>
   );

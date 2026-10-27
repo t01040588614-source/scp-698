@@ -7,12 +7,31 @@ export type MarketRegionId = "overview" | "korea" | "asia" | "us" | "europe";
 export type MarketsContentTabId = "overview" | "indices" | "stocks" | "forex" | "commodities";
 
 export const MARKET_REGION_NAV: { id: MarketRegionId; label: string; hint?: string }[] = [
-  { id: "overview", label: "전체 시장" },
-  { id: "korea", label: "한국" },
-  { id: "asia", label: "아시아" },
-  { id: "us", label: "미국" },
-  { id: "europe", label: "유럽" },
+  { id: "overview", label: "전체 시장", hint: "4개 권역" },
+  { id: "korea", label: "한국", hint: "KOSPI·KOSDAQ" },
+  { id: "asia", label: "아시아", hint: "니케이 등" },
+  { id: "us", label: "미국", hint: "NASDAQ·S&P" },
+  { id: "europe", label: "유럽", hint: "DAX 등" },
 ];
+
+export function regionFilterLabel(region: MarketRegionId): string {
+  return MARKET_REGION_NAV.find((r) => r.id === region)?.label ?? "전체 시장";
+}
+
+export function regionFilterBlurb(region: MarketRegionId): string {
+  switch (region) {
+    case "korea":
+      return "한국 지수와 국내 종목만 표시합니다.";
+    case "asia":
+      return "아시아 지수·종목만 표시합니다.";
+    case "us":
+      return "미국 지수·종목만 표시합니다.";
+    case "europe":
+      return "유럽 지수·종목만 표시합니다.";
+    default:
+      return "모든 지역의 지수·종목을 함께 봅니다.";
+  }
+}
 
 export const MARKETS_CONTENT_TABS: { id: MarketsContentTabId; label: string }[] = [
   { id: "overview", label: "개요" },

@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useMarketWebSocketContext } from "@/context/MarketWebSocketProvider";
 import { useMarketWebSocket } from "@/hooks/useMarketWebSocket";
 import { mergeLiveStockQuote } from "@/lib/liveQuoteMerge";
+import { pickWsQuote, pickWsTick } from "@/lib/wsSymbolKey";
 
 /** REST 시세 + 전역 WS 캐시 병합 */
 export function useLiveStockDisplay(
@@ -18,8 +19,8 @@ export function useLiveStockDisplay(
   useMarketWebSocket(symbol ? [symbol] : [], []);
 
   const ctx = useMarketWebSocketContext();
-  const live = ctx?.quotes[symbol];
-  const tick = ctx?.ticks[symbol];
+  const live = ctx ? pickWsQuote(symbol, ctx.quotes) : undefined;
+  const tick = ctx ? pickWsTick(symbol, ctx.ticks) : undefined;
 
   return useMemo(() => {
     if (!base) {

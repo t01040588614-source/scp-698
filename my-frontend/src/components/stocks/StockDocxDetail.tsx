@@ -38,7 +38,7 @@ export default function StockDocxDetail({ code }: { code: string }) {
         { label: String(stock?.name ?? code) },
       ]}
       title={String(stock?.name ?? code)}
-      description={`DOCX /stocks/[code] — 시세·Lightweight Charts·재무·뉴스·컨센서스`}
+      description="시세 · 차트 · 재무 · 뉴스 · 컨센서스"
       sidebar={{ market: "korea", showIndicesWidget: true }}
     >
       {isLoading && <LoadingState rows={5} />}

@@ -28,10 +28,11 @@ export function useRankMoveTone(
   }, [resetKey]);
 
   useEffect(() => {
+    const symbols = orderKey ? orderKey.split("\0") : [];
     const updates: Record<string, RankMoveTone> = {};
     const nextRanks = new Map<string, number>();
 
-    orderedSymbols.forEach((sym, index) => {
+    symbols.forEach((sym, index) => {
       const rank = index + 1;
       nextRanks.set(sym, rank);
       const prevRank = prevRanksRef.current.get(sym);
@@ -44,8 +45,18 @@ export function useRankMoveTone(
 
     if (Object.keys(updates).length === 0) return;
 
-    setTones((prev) => ({ ...prev, ...updates }));
-  }, [orderKey, orderedSymbols]);
+    setTones((prev) => {
+      let changed = false;
+      const merged = { ...prev };
+      for (const [sym, tone] of Object.entries(updates)) {
+        if (merged[sym] !== tone) {
+          merged[sym] = tone;
+          changed = true;
+        }
+      }
+      return changed ? merged : prev;
+    });
+  }, [orderKey]);
 
   return tones;
 }

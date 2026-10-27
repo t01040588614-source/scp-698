@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { Activity, BarChart2, Radio } from "lucide-react";
 import AppLogo from "@/components/layout/AppLogo";
+import SystemStatusLink from "@/components/navigation/SystemStatusLink";
 import { authUi } from "@/content/authUi";
 
 const FEATURE_ICONS = [Radio, BarChart2, Activity] as const;
@@ -29,9 +29,9 @@ export default function AuthAside() {
             );
           })}
         </ul>
-        <Link href={aside.systemLink.href} className="auth-register-aside-link">
+        <SystemStatusLink href={aside.systemLink.href} className="auth-register-aside-link">
           {aside.systemLink.linkLabel} →
-        </Link>
+        </SystemStatusLink>
         <div className="auth-register-disclaimer">
           <p className="auth-register-disclaimer-title">{aside.disclaimerTitle}</p>
           <p>{aside.disclaimerBody}</p>

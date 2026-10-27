@@ -105,12 +105,30 @@ export function buildAnalysisListBundle(
   };
 }
 
+async function fetchNewsMacroItems(): Promise<AnalysisListItem[]> {
+  try {
+    const { getNewsList } = await import("@/services/newsApi");
+    const feed = await getNewsList({ page: 1 });
+    return (feed.data ?? []).slice(0, 5).map((n) => ({
+      id: `news-${n.id}`,
+      title: n.title,
+      author: n.source,
+      tag: n.category || "뉴스",
+      publishedAt: n.publishedAt,
+      href: n.url,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 /** REST 일괄 조회 (폴백·SSR용) */
 export async function getAnalysisList(): Promise<AnalysisListBundle> {
-  const [krRes, usRes] = await Promise.allSettled([
-    stockApi.getKoreaStocks(),
-    stockApi.getUSStocks(),
+  const [stockResults, newsMacro] = await Promise.all([
+    Promise.allSettled([stockApi.getKoreaStocks(), stockApi.getUSStocks()]),
+    fetchNewsMacroItems(),
   ]);
+  const [krRes, usRes] = stockResults;
 
   const koreaRaw = krRes.status === "fulfilled" ? (krRes.value.data ?? []) : [];
   const usRaw = usRes.status === "fulfilled" ? (usRes.value.data ?? []) : [];
@@ -118,5 +136,12 @@ export async function getAnalysisList(): Promise<AnalysisListBundle> {
   const koreaEquities = koreaRaw.map(koreaToEquity).sort(sortEquitiesForAnalysis);
   const usEquities = usRaw.map(usToEquity).sort(sortEquitiesForAnalysis);
 
-  return buildAnalysisListBundle(koreaEquities, usEquities, "rest");
+  const bundle = buildAnalysisListBundle(koreaEquities, usEquities, "rest");
+  if (!newsMacro.length) return bundle;
+  const data = [...newsMacro, ...bundle.data];
+  return {
+    ...bundle,
+    data,
+    counts: { ...bundle.counts, total: data.length },
+  };
 }

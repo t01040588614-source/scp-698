@@ -1,24 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { fetchMarketIndicesResilient } from "@/services/marketApi";
-import { getIndexHistory, syntheticFromPrice } from "@/services/chartApi";
 import {
+  DEFAULT_SIDEBAR_CHART_PERIOD,
   SIDEBAR_INDEX_TABS,
   defaultIndexIdForMarket,
   indexIdsForTab,
-  chartHistoryRefetchMs,
-  normalizeChartPeriod,
   type SidebarChartPeriod,
   type SidebarIndexTabId,
 } from "@/lib/indexCatalog";
 import { usePriceFlash } from "@/hooks/usePriceFlash";
 import { useMarketWebSocket } from "@/hooks/useMarketWebSocket";
-import InvestingStyleChart from "@/components/chart/InvestingStyleChart";
+import IndexInvestingChart from "@/components/chart/IndexInvestingChart";
 import { formatChange, formatIndexPrice, formatPercent, priceClass } from "@/lib/format";
-import { liveOhlcForPeriod, syncLastPointToLivePrice } from "@/lib/chartSeries";
-import { seedHubIndexQuote } from "@/lib/hubIndexSeeds";
+import { pendingIndexQuote, seedHubIndexQuote } from "@/lib/hubIndexSeeds";
 import type { MarketIndexQuote } from "@/types/stock";
 import { CHART_HEIGHT } from "@/config/chartLayout";
 
@@ -28,6 +26,8 @@ type SidebarIndicesWidgetProps = {
   liveIndices?: MarketIndexQuote[];
   indicesStreamConnected?: boolean;
   subscribeIndexIds?: string[];
+  /** 종목 상세 등 좁은 사이드 — 차트·목록 높이 축소 */
+  compact?: boolean;
 };
 
 function formatSidebarPrice(id: string, price: number) {
@@ -35,16 +35,6 @@ function formatSidebarPrice(id: string, price: number) {
     return formatIndexPrice(id, price);
   }
   return formatIndexPrice(id, price);
-}
-
-function chartDataCaption(source?: string, interval?: string): string | null {
-  if (!source || !interval) return null;
-  if (source === "yahoo" && /m$|h$/.test(interval)) {
-    return `${interval} · Yahoo (당일·근거래일)`;
-  }
-  if (source === "yahoo" && interval === "1d") return "일봉 · Yahoo";
-  if (source === "fdr") return "일봉 · FDR (Yahoo 제한 시)";
-  return null;
 }
 
 function mergeIndexRows(
@@ -55,7 +45,16 @@ function mergeIndexRows(
   const map = new Map<string, MarketIndexQuote>();
   for (const row of rest) map.set(row.id, row);
   for (const row of live) {
-    map.set(row.id, { ...(map.get(row.id) as MarketIndexQuote | undefined), ...row });
+    if (row.price <= 0) continue;
+    const prev = map.get(row.id);
+    if (!prev) {
+      map.set(row.id, row);
+      continue;
+    }
+    const prevFlat = prev.changePercent === 0 && prev.change === 0;
+    const liveFlat = row.changePercent === 0 && row.change === 0;
+    if (!prevFlat && liveFlat) continue;
+    map.set(row.id, { ...prev, ...row });
   }
   return Array.from(map.values());
 }
@@ -68,7 +67,11 @@ function orderedIndexRows(
 ): MarketIndexQuote[] {
   const merged = mergeIndexRows(api, live);
   const map = new Map(merged.map((r) => [r.id, r]));
-  return ids.map((id) => map.get(id) ?? seedHubIndexQuote(id));
+  return ids.map((id) => {
+    const row = map.get(id);
+    if (row && row.price > 0) return row;
+    return pendingIndexQuote(id);
+  });
 }
 
 export default function SidebarIndicesWidget({
@@ -76,10 +79,13 @@ export default function SidebarIndicesWidget({
   liveIndices: liveIndicesProp,
   indicesStreamConnected: streamConnectedProp,
   subscribeIndexIds,
+  compact = false,
 }: SidebarIndicesWidgetProps) {
   const [tabId, setTabId] = useState<SidebarIndexTabId>("indices");
   const [selectedId, setSelectedId] = useState(() => defaultIndexIdForMarket(market));
-  const [period, setPeriod] = useState<SidebarChartPeriod>("1d");
+  const [sidebarChartPeriod, setSidebarChartPeriod] =
+    useState<SidebarChartPeriod>(DEFAULT_SIDEBAR_CHART_PERIOD);
+  const pathname = usePathname();
 
   const tab = SIDEBAR_INDEX_TABS.find((t) => t.id === tabId) ?? SIDEBAR_INDEX_TABS[1];
   const tabIndexIds = useMemo(() => indexIdsForTab(tab), [tab]);
@@ -119,6 +125,7 @@ export default function SidebarIndicesWidget({
   );
 
   const indicesFromApi = (indices?.length ?? 0) > 0;
+  const pendingCount = items.filter((i) => i.status === "pending" || i.price <= 0).length;
 
   useEffect(() => {
     if (items.length === 0) return;
@@ -128,11 +135,27 @@ export default function SidebarIndicesWidget({
   }, [items, selectedId]);
 
   useEffect(() => {
+    setSidebarChartPeriod(DEFAULT_SIDEBAR_CHART_PERIOD);
+  }, [selectedId]);
+
+  useEffect(() => {
     setSelectedId(defaultIndexIdForMarket(market));
     setTabId("indices");
   }, [market]);
 
-  const selected = items.find((i) => i.id === selectedId) ?? items[0];
+  useEffect(() => {
+    const match = pathname.match(/\/markets\/indices\/([^/?#]+)/);
+    if (!match?.[1]) return;
+    const fromUrl = decodeURIComponent(match[1]);
+    if (tabIndexIds.includes(fromUrl)) setSelectedId(fromUrl);
+  }, [pathname, tabIndexIds]);
+
+  const selected =
+    items.find((i) => i.id === selectedId) ??
+    items.find((i) => i.price > 0) ??
+    items[0];
+
+  const chartLivePrice = selected.price > 0 ? selected.price : seedHubIndexQuote(selected.id).price;
 
   const priceMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -142,68 +165,7 @@ export default function SidebarIndicesWidget({
 
   const flash = usePriceFlash(priceMap);
 
-  const {
-    data: history,
-    isLoading: chartLoading,
-    isError: chartError,
-  } = useQuery({
-    queryKey: ["sidebarIndexChart", selected?.id, period],
-    queryFn: () => getIndexHistory(selected!.id, period, selected!.price),
-    enabled: Boolean(selected?.id),
-    staleTime: 30_000,
-    retry: 1,
-    refetchInterval: chartHistoryRefetchMs(period, streamConnected),
-  });
-
   const onSelect = useCallback((id: string) => setSelectedId(id), []);
-
-  const chartPoints = useMemo(() => {
-    const pts = history?.points ?? [];
-    if (pts.length < 2 || !selected) return pts;
-    const p = selected.price;
-    return syncLastPointToLivePrice(pts, p);
-  }, [history?.points, selected]);
-
-  const insufficientHistoryBars =
-    !chartLoading &&
-    Boolean(history) &&
-    (history?.points?.length ?? 0) > 0 &&
-    (history?.points?.length ?? 0) < 2;
-
-  const usingClientFallbackCurve =
-    !chartLoading &&
-    chartPoints.length < 2 &&
-    Boolean(selected?.price && selected.price > 0) &&
-    (chartError || history?.source === "synthetic" || insufficientHistoryBars);
-
-  const chartDisplayPoints = useMemo(() => {
-    if (chartLoading && chartPoints.length < 2) return [];
-    if (chartPoints.length >= 2) return chartPoints;
-    if (!selected?.price || selected.price <= 0) return [];
-    if (usingClientFallbackCurve) {
-      return syntheticFromPrice(selected.price, period);
-    }
-    return [];
-  }, [
-    chartLoading,
-    chartPoints,
-    selected?.price,
-    usingClientFallbackCurve,
-    period,
-  ]);
-
-  const sidebarLiveOhlc = useMemo(() => {
-    if (history?.source !== "yahoo" && history?.source !== "fdr") return undefined;
-    const px = selected?.price;
-    if (px == null || !Number.isFinite(px)) return undefined;
-    return liveOhlcForPeriod(chartDisplayPoints, px);
-  }, [history?.source, chartDisplayPoints, selected?.price]);
-
-  const chartLiveTail =
-    chartDisplayPoints.length >= 2 &&
-    selected != null &&
-    Number.isFinite(selected.price) &&
-    selected.price > 0;
 
   if (!selected) {
     return (
@@ -213,11 +175,12 @@ export default function SidebarIndicesWidget({
     );
   }
 
-  const priceDecimals =
-    selected.id.includes("krw") || selected.price > 1000 ? 2 : selected.price > 100 ? 2 : 2;
+  const chartHeight = compact ? CHART_HEIGHT.sidebarCompact : CHART_HEIGHT.sidebar;
 
   return (
-    <section className="inv-widget inv-sidebar-indices inv-sidebar-indices--live">
+    <section
+      className={`inv-widget inv-sidebar-indices inv-sidebar-indices--live${compact ? " inv-sidebar-indices--compact" : ""}`}
+    >
       <header className="inv-widget-head inv-sidebar-live-head">
         <div className="inv-sidebar-tabs" role="tablist" aria-label="지수 카테고리">
           {SIDEBAR_INDEX_TABS.map((t) => (
@@ -237,58 +200,31 @@ export default function SidebarIndicesWidget({
 
       <div className="inv-widget-body inv-sidebar-indices-body">
         <div className="inv-sidebar-chart-block inv-sidebar-realtime-chart">
-          <InvestingStyleChart
+          <IndexInvestingChart
             compact
-            hideChartTypes
-            chartType="area"
-            showVolume={false}
-            enableLiveTail={chartLiveTail}
-            symbolLabel={selected.id === "oil" ? "CL" : selected.name}
-            points={chartDisplayPoints}
-            loading={chartLoading}
-            height={CHART_HEIGHT.sidebar}
-            period={period}
-            onPeriodChange={(p) => setPeriod(normalizeChartPeriod(p) as SidebarChartPeriod)}
-            priceDecimals={priceDecimals}
-            dataInterval={history?.interval}
-            liveOhlc={sidebarLiveOhlc}
-            referencePrice={
-              Number.isFinite(selected.change)
-                ? selected.price - selected.change
-                : undefined
-            }
+            height={chartHeight}
+            indexId={selected.id}
+            indexName={selected.name}
+            category={selected.category}
+            country={selected.country}
+            livePrice={chartLivePrice}
+            liveChange={selected.price > 0 ? selected.change : 0}
+            streamConnected={streamConnected}
+            period={sidebarChartPeriod}
+            onPeriodChange={setSidebarChartPeriod}
           />
-          {(() => {
-            const cap = chartDataCaption(history?.source, history?.interval);
-            return cap ? (
-              <p className="inv-sidebar-chart-meta" role="status">
-                {cap}
-              </p>
-            ) : null;
-          })()}
-          {(chartError ||
-            history?.source === "synthetic" ||
-            insufficientHistoryBars ||
-            usingClientFallbackCurve) && (
-            <p className="inv-sidebar-chart-warn">
-              {insufficientHistoryBars
-                ? "차트 봉이 부족해 참고 곡선을 표시합니다. 목록·WS 시세는 WS와 함께 갱신됩니다."
-                : history?.source === "synthetic" || usingClientFallbackCurve
-                  ? "실제 차트를 불러오지 못해 참고 곡선입니다. 목록·WS 시세는 WS와 함께 갱신됩니다."
-                  : "차트 API 실패 — 근사 데이터를 표시합니다."}
-            </p>
-          )}
         </div>
 
         <ul className="inv-sidebar-index-list inv-sidebar-index-list--live">
           {items.map((item) => {
             const isSelected = item.id === selected.id;
             const flashDir = flash[item.id];
+            const pending = item.status === "pending" || item.price <= 0;
             return (
               <li key={item.id}>
                 <button
                   type="button"
-                  className={`inv-sidebar-index-row inv-sidebar-index-row--btn${isSelected ? " is-selected" : ""}${flashDir ? ` is-flash-${flashDir}` : ""}`}
+                  className={`inv-sidebar-index-row inv-sidebar-index-row--btn${isSelected ? " is-selected" : ""}${pending ? " is-pending" : ""}`}
                   onClick={() => onSelect(item.id)}
                 >
                   <span className="inv-sidebar-index-name">{item.name}</span>
@@ -296,19 +232,18 @@ export default function SidebarIndicesWidget({
                     <span
                       className={`inv-sidebar-index-price tabular${flashDir ? ` is-flash-${flashDir}` : ""}`}
                     >
-                      {formatSidebarPrice(item.id, item.price)}
-                    </span>
-                    <span className={`tabular ${priceClass(item.change)}`}>
-                      {formatChange(item.change, item.price > 100 ? 2 : 4)}
-                    </span>
-                    <span className={`tabular ${priceClass(item.changePercent)}`}>
-                      {formatPercent(item.changePercent)}
+                      {pending ? "…" : formatSidebarPrice(item.id, item.price)}
                     </span>
                     <span
-                      className={`inv-index-clock ${item.changePercent >= 0 ? "is-up" : "is-down"}`}
-                      title={streamConnected ? "WebSocket" : "폴링 갱신"}
-                      aria-hidden
-                    />
+                      className={`inv-sidebar-index-change tabular ${pending ? "" : priceClass(item.change)}`}
+                    >
+                      {pending ? "—" : formatChange(item.change, item.price > 100 ? 2 : 4)}
+                    </span>
+                    <span
+                      className={`inv-sidebar-index-chgpct tabular ${pending ? "" : priceClass(item.changePercent)}`}
+                    >
+                      {pending ? "—" : formatPercent(item.changePercent)}
+                    </span>
                   </span>
                 </button>
               </li>
@@ -316,12 +251,16 @@ export default function SidebarIndicesWidget({
           })}
         </ul>
 
-        <p className="inv-sidebar-live-meta tabular">
+        <p className={`inv-sidebar-live-meta tabular${streamConnected ? " is-stream-live" : ""}`}>
           {streamConnected ? "WebSocket · " : "폴링 · "}
-          {dataUpdatedAt
-            ? `REST ${new Date(dataUpdatedAt).toLocaleTimeString("ko-KR")}`
-            : "갱신 대기"}
-          {!indicesFromApi && (isError || !dataUpdatedAt) ? " · API 지연 — 참고 시세" : ""}
+          {pendingCount > 0
+            ? `지수 ${pendingCount}개 로딩…`
+            : dataUpdatedAt
+              ? `REST ${new Date(dataUpdatedAt).toLocaleTimeString("ko-KR")}`
+              : "갱신 대기"}
+          {!indicesFromApi && pendingCount === 0 && (isError || !dataUpdatedAt)
+            ? " · API 지연"
+            : ""}
           {isError && indicesFromApi ? " · 일부 갱신 실패" : ""}
         </p>
       </div>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAppLinkNavigate } from "@/hooks/useAppLinkNavigate";
 
 const ITEMS = [
   { href: "/markets", label: "시장", icon: "market" },
@@ -71,6 +72,7 @@ type InvestingToolRailProps = {
 
 export default function InvestingToolRail({ railRef }: InvestingToolRailProps = {}) {
   const pathname = usePathname();
+  const navigate = useAppLinkNavigate();
 
   return (
     <nav ref={railRef as React.RefObject<HTMLElement>} className="inv-tool-rail" aria-label="빠른 도구">
@@ -82,6 +84,7 @@ export default function InvestingToolRail({ railRef }: InvestingToolRailProps = 
             href={item.href}
             className={active ? "is-active" : undefined}
             title={item.label}
+            onClick={navigate(item.href)}
           >
             <span className="inv-tool-rail-icon">
               <RailIcon name={item.icon} />

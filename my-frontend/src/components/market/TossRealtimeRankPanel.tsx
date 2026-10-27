@@ -7,7 +7,9 @@ import TossRankSparkline from "@/components/market/TossRankSparkline";
 import { useLiveSymbols } from "@/hooks/useLiveSymbols";
 import { useSmoothReorder } from "@/hooks/useSmoothReorder";
 import { rankMovePriceClass, useRankMoveTone } from "@/hooks/useRankMoveTone";
+import { wsLiveInputsForSymbol } from "@/lib/equityQuotes";
 import { mergeLiveStockQuote } from "@/lib/liveQuoteMerge";
+import type { LiveStockTick } from "@/lib/wsNormalize";
 import type { KoreaStock, USStock } from "@/types/stock";
 import { formatPercent, formatPrice, priceClass } from "@/lib/format";
 import { formatVolumeShort } from "@/lib/chartSeries";
@@ -32,28 +34,37 @@ type TossRealtimeRankPanelProps = {
   sparklines?: boolean;
 };
 
-function turnover(row: StockRow): number {
-  return (row.price ?? 0) * (row.volume ?? 0);
-}
-
-function liveRowMetrics(row: StockRow, livePrice?: number) {
-  const price =
-    livePrice !== undefined && Number.isFinite(livePrice) ? livePrice : (row.price ?? 0);
-  const prev =
-    row.previousClose > 0 ? row.previousClose : price - (row.change ?? 0);
-  const change = price - prev;
-  const changePercent = prev > 0 ? (change / prev) * 100 : (row.changePercent ?? 0);
-  return { price, changePercent, volume: row.volume ?? 0, turnover: price * (row.volume ?? 0) };
+function liveRowMetrics(row: StockRow, livePrice?: number, tick?: LiveStockTick) {
+  const merged = mergeLiveStockQuote(
+    {
+      price: row.price ?? 0,
+      change: row.change ?? 0,
+      changePercent: row.changePercent ?? 0,
+      previousClose: row.previousClose,
+      volume: row.volume,
+    },
+    livePrice,
+    tick
+  );
+  return {
+    price: merged.price,
+    changePercent: merged.changePercent,
+    volume: merged.volume,
+    turnover: merged.price * merged.volume,
+  };
 }
 
 function compareRankRows(
   a: StockRow,
   b: StockRow,
   sort: TossRankSort,
-  liveQuotes: Record<string, number>
+  liveQuotes: Record<string, number>,
+  liveTicks: Record<string, LiveStockTick>
 ): number {
-  const ma = liveRowMetrics(a, liveQuotes[a.symbol]);
-  const mb = liveRowMetrics(b, liveQuotes[b.symbol]);
+  const ia = wsLiveInputsForSymbol(a.symbol, liveQuotes, liveTicks);
+  const ib = wsLiveInputsForSymbol(b.symbol, liveQuotes, liveTicks);
+  const ma = liveRowMetrics(a, ia.livePrice, ia.tick);
+  const mb = liveRowMetrics(b, ib.livePrice, ib.tick);
   let primary = 0;
   if (sort === "turnover") {
     primary = mb.turnover - ma.turnover;
@@ -65,9 +76,9 @@ function compareRankRows(
     primary = ma.changePercent - mb.changePercent;
   }
   if (primary !== 0) return primary;
-  const byTurnover = turnover(b) - turnover(a);
+  const byTurnover = mb.turnover - ma.turnover;
   if (byTurnover !== 0) return byTurnover;
-  return (b.volume ?? 0) - (a.volume ?? 0);
+  return mb.volume - ma.volume;
 }
 
 function formatTurnover(value: number, market: "korea" | "us"): string {
@@ -110,9 +121,9 @@ export default function TossRealtimeRankPanel({
 
   const rows = useMemo(() => {
     const pool = domesticOnly || market === "korea" ? [...koreaStocks] : [...usStocks];
-    pool.sort((a, b) => compareRankRows(a, b, sort, liveQuotes));
+    pool.sort((a, b) => compareRankRows(a, b, sort, liveQuotes, liveTicks));
     return pool.slice(0, 30);
-  }, [koreaStocks, usStocks, market, sort, domesticOnly, liveQuotes]);
+  }, [koreaStocks, usStocks, market, sort, domesticOnly, liveQuotes, liveTicks]);
 
   const rowSymbols = useMemo(() => rows.map((r) => r.symbol), [rows]);
   const rankTones = useRankMoveTone(rowSymbols, `${market}-${sort}`);
@@ -183,6 +194,7 @@ export default function TossRealtimeRankPanel({
       <ol ref={rankListRef} className="toss-rank-list inv-smooth-rank">
         {rows.map((row, idx) => {
           const sym = row.symbol;
+          const { livePrice, tick } = wsLiveInputsForSymbol(sym, liveQuotes, liveTicks);
           const live = mergeLiveStockQuote(
             {
               price: row.price ?? 0,
@@ -191,8 +203,8 @@ export default function TossRealtimeRankPanel({
               previousClose: row.previousClose,
               volume: row.volume,
             },
-            liveQuotes[sym],
-            liveTicks[sym]
+            livePrice,
+            tick
           );
           const pct = live.changePercent ?? 0;
           const mkt = domesticOnly ? "korea" : market;
@@ -228,7 +240,7 @@ export default function TossRealtimeRankPanel({
                 {formatPercent(pct)}
               </span>
               <span className="toss-rank-col-turnover tabular">
-                {formatTurnover(turnover({ ...row, price: live.price }), mkt)}
+                {formatTurnover(live.price * (live.volume || row.volume || 0), mkt)}
               </span>
               <span className="toss-rank-col-mcap tabular">
                 {formatMcap(row.marketCap ?? 0, mkt)}

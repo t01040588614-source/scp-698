@@ -21,3 +21,16 @@ export function buildSparklinePath(
     })
     .join(" ");
 }
+
+/** 스파크라인 영역 채우기 (MarketLens 카드형) */
+export function buildSparklineAreaPath(
+  values: number[],
+  width: number,
+  height: number,
+  paddingY = 1,
+): string {
+  const line = buildSparklinePath(values, width, height, paddingY);
+  if (!line) return "";
+  const bottom = height - paddingY;
+  return `${line} L${width.toFixed(1)},${bottom.toFixed(1)} L0,${bottom.toFixed(1)} Z`;
+}

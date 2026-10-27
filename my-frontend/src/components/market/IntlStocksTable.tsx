@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import { useClientLocaleTime } from "@/hooks/useClientLocaleTime";
 import type { IntlStock } from "@/types/stock";
+import { wsLiveInputsForSymbol } from "@/lib/equityQuotes";
 import { mergeLiveStockQuote } from "@/lib/liveQuoteMerge";
 import type { LiveStockTick } from "@/lib/wsNormalize";
 import StockNameWithLogo from "@/components/market/StockNameWithLogo";
@@ -30,10 +32,12 @@ function IntlStockRow({
   row,
   livePrice,
   tick,
+  time,
 }: {
   row: IntlStock;
   livePrice?: number;
   tick?: LiveStockTick;
+  time: string;
 }) {
   const merged = mergeLiveStockQuote(
     {
@@ -47,7 +51,6 @@ function IntlStockRow({
     tick
   );
   const decimals = priceDecimals(row.currency);
-  const time = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
 
   return (
     <tr>
@@ -83,9 +86,11 @@ export default function IntlStocksTable({
   liveQuotes = {},
   liveTicks = {},
 }: IntlStocksTableProps) {
+  const hubTime = useClientLocaleTime("hm") ?? "—";
   const [rankTbodyRef] = useSmoothReorder();
   const rows = useMemo(() => {
     const merged = stocks.map((row) => {
+      const { livePrice, tick } = wsLiveInputsForSymbol(row.symbol, liveQuotes, liveTicks);
       const live = mergeLiveStockQuote(
         {
           price: row.price,
@@ -94,8 +99,8 @@ export default function IntlStocksTable({
           previousClose: row.previousClose,
           volume: row.volume,
         },
-        liveQuotes[row.symbol],
-        liveTicks[row.symbol]
+        livePrice,
+        tick
       );
       return { row, changePercent: live.changePercent, volume: live.volume };
     });
@@ -130,14 +135,18 @@ export default function IntlStocksTable({
             </tr>
           </thead>
           <tbody ref={rankTbodyRef} className="inv-smooth-rank">
-            {rows.map((row) => (
-              <IntlStockRow
-                key={row.symbol}
-                row={row}
-                livePrice={liveQuotes[row.symbol]}
-                tick={liveTicks[row.symbol]}
-              />
-            ))}
+            {rows.map((row) => {
+              const { livePrice, tick } = wsLiveInputsForSymbol(row.symbol, liveQuotes, liveTicks);
+              return (
+                <IntlStockRow
+                  key={row.symbol}
+                  row={row}
+                  livePrice={livePrice}
+                  tick={tick}
+                  time={hubTime}
+                />
+              );
+            })}
           </tbody>
         </table>
       </div>

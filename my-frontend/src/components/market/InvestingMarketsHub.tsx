@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import AppLink from "@/components/common/AppLink";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { stockApi } from "@/lib/api";
 import { fetchMarketIndicesResilient, seedMarketIndexCatalog } from "@/services/marketApi";
@@ -21,6 +22,8 @@ import {
 } from "@/lib/regionalMarkets";
 import type { MarketIndexQuote } from "@/types/stock";
 import RegionalIndicesTable from "./RegionalIndicesTable";
+import RegionalWorldMap from "./RegionalWorldMap";
+import MarketsHubActiveFilter from "./MarketsHubActiveFilter";
 import MarketsHubStocksPanel from "./MarketsHubStocksPanel";
 import LoadingState from "@/components/common/LoadingState";
 import ErrorState from "@/components/common/ErrorState";
@@ -30,8 +33,27 @@ import {
   marketIndicesRefetchMs,
   stocksListRefetchMs,
 } from "@/lib/marketRefreshIntervals";
-import { koreaToEquity, resolveLiveEquityQuote, usToEquity } from "@/lib/equityQuotes";
+import {
+  koreaToEquity,
+  resolveLiveEquityQuoteFromMaps,
+  usToEquity,
+  wsLiveInputsForSymbol,
+} from "@/lib/equityQuotes";
 import { mergeLiveStockQuote } from "@/lib/liveQuoteMerge";
+import type { MapRegionId } from "@/lib/regionMapStats";
+
+function parseRegionParam(value: string | null): MarketRegionId | null {
+  if (
+    value === "overview" ||
+    value === "korea" ||
+    value === "asia" ||
+    value === "us" ||
+    value === "europe"
+  ) {
+    return value;
+  }
+  return null;
+}
 
 function mergeLiveIndices(
   rest: MarketIndexQuote[],
@@ -68,7 +90,11 @@ export default function InvestingMarketsHub({
   initialContentTab = "overview",
   highlightIndexId = null,
 }: InvestingMarketsHubProps) {
-  const [region, setRegion] = useState<MarketRegionId>("overview");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [region, setRegion] = useState<MarketRegionId>(() => {
+    return parseRegionParam(searchParams.get("region")) ?? "overview";
+  });
   const [contentTab, setContentTab] = useState<MarketsContentTabId>(initialContentTab);
   const wsCtx = useMarketWebSocketContext();
   const streamConnected = wsCtx?.isConnected ?? false;
@@ -84,6 +110,60 @@ export default function InvestingMarketsHub({
     cacheStatus?.usSource === "none";
   const regularSession = Boolean(cacheStatus?.krMarketOpen || cacheStatus?.usMarketOpen);
   const stocksPollMs = stocksListRefetchMs(streamConnected, needsLive, regularSession);
+
+  useEffect(() => {
+    const fromUrl = parseRegionParam(searchParams.get("region"));
+    if (fromUrl) setRegion(fromUrl);
+  }, [searchParams]);
+
+  const hubDetailRef = useRef<HTMLDivElement>(null);
+
+  const selectRegion = useCallback(
+    (
+      next: MarketRegionId,
+      options?: { scrollToDetail?: boolean; openStocksTab?: boolean }
+    ) => {
+      setRegion(next);
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "overview") params.delete("region");
+      else params.set("region", next);
+
+      const openStocks = next !== "overview" && options?.openStocksTab !== false;
+      if (openStocks) {
+        setContentTab("stocks");
+        params.set("tab", "stocks");
+      } else if (next !== "overview" && (contentTab === "forex" || contentTab === "commodities")) {
+        setContentTab("overview");
+        params.delete("tab");
+      }
+
+      const qs = params.toString();
+      router.replace(qs ? `/markets?${qs}` : "/markets", { scroll: false });
+      if (options?.scrollToDetail !== false) {
+        requestAnimationFrame(() => {
+          const el = hubDetailRef.current;
+          if (!el) return;
+          const top = el.getBoundingClientRect().top;
+          if (top > window.innerHeight * 0.55) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        });
+      }
+    },
+    [router, searchParams, contentTab]
+  );
+
+  const selectContentTab = useCallback(
+    (tab: MarketsContentTabId) => {
+      setContentTab(tab);
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === "overview") params.delete("tab");
+      else params.set("tab", tab);
+      const qs = params.toString();
+      router.replace(qs ? `/markets?${qs}` : "/markets", { scroll: false });
+    },
+    [router, searchParams]
+  );
 
   useEffect(() => {
     setContentTab(parseInitialContentTab(initialContentTab));
@@ -188,36 +268,64 @@ export default function InvestingMarketsHub({
     return filterIndicesByTab(regional, contentTab);
   }, [allIndices, region, contentTab]);
 
+  const mapStockChanges = useMemo((): Record<MapRegionId, number[]> => {
+    const pct = (
+      symbol: string,
+      base: { price: number; change: number; changePercent: number; previousClose?: number }
+    ) => {
+      const { livePrice, tick } = wsLiveInputsForSymbol(symbol, liveQuotes, liveTicks);
+      return mergeLiveStockQuote(
+        {
+          price: base.price,
+          change: base.change,
+          changePercent: base.changePercent,
+          previousClose: base.previousClose ?? base.price - base.change,
+        },
+        livePrice,
+        tick
+      ).changePercent;
+    };
+
+    return {
+      korea: (koreaStocks ?? []).map((s) => pct(s.symbol, s)),
+      us: (usStocks ?? []).map((s) => pct(s.symbol, s)),
+      asia: (asiaStocks ?? []).map((s) => pct(s.symbol, s)),
+      europe: (europeStocks ?? []).map((s) => pct(s.symbol, s)),
+    };
+  }, [koreaStocks, usStocks, asiaStocks, europeStocks, liveQuotes, liveTicks]);
+
   const breadth = useMemo(() => {
     const kr = (koreaStocks ?? []).map(koreaToEquity);
     const us = (usStocks ?? []).map(usToEquity);
     const changes = [
-      ...kr.map((row) => resolveLiveEquityQuote(row, liveQuotes[row.symbol], liveTicks[row.symbol]).changePercent),
-      ...us.map((row) => resolveLiveEquityQuote(row, liveQuotes[row.symbol], liveTicks[row.symbol]).changePercent),
-      ...(asiaStocks ?? []).map((s) =>
-        mergeLiveStockQuote(
+      ...kr.map((row) => resolveLiveEquityQuoteFromMaps(row, liveQuotes, liveTicks).changePercent),
+      ...us.map((row) => resolveLiveEquityQuoteFromMaps(row, liveQuotes, liveTicks).changePercent),
+      ...(asiaStocks ?? []).map((s) => {
+        const { livePrice, tick } = wsLiveInputsForSymbol(s.symbol, liveQuotes, liveTicks);
+        return mergeLiveStockQuote(
           {
             price: s.price,
             change: s.change,
             changePercent: s.changePercent,
             previousClose: s.previousClose,
           },
-          liveQuotes[s.symbol],
-          liveTicks[s.symbol]
-        ).changePercent
-      ),
-      ...(europeStocks ?? []).map((s) =>
-        mergeLiveStockQuote(
+          livePrice,
+          tick
+        ).changePercent;
+      }),
+      ...(europeStocks ?? []).map((s) => {
+        const { livePrice, tick } = wsLiveInputsForSymbol(s.symbol, liveQuotes, liveTicks);
+        return mergeLiveStockQuote(
           {
             price: s.price,
             change: s.change,
             changePercent: s.changePercent,
             previousClose: s.previousClose,
           },
-          liveQuotes[s.symbol],
-          liveTicks[s.symbol]
-        ).changePercent
-      ),
+          livePrice,
+          tick
+        ).changePercent;
+      }),
     ];
     return computeBreadth(changes);
   }, [koreaStocks, usStocks, asiaStocks, europeStocks, liveQuotes, liveTicks]);
@@ -243,7 +351,7 @@ export default function InvestingMarketsHub({
   const indicesNoticeMessage = (() => {
     if (!healthFetched) return null;
     if (backendDown) {
-      return "백엔드(8000)에 연결되지 않았습니다. 참고 지수 시세를 표시합니다. 주식대시보드_실행.bat으로 실시간 데이터를 켜세요.";
+      return "백엔드(8000)에 연결되지 않았습니다. 참고 지수 시세를 표시합니다. 주식대시보드_통합.bat(메뉴 1)으로 실시간 데이터를 켜세요.";
     }
     if (indicesUsingFallback) {
       return "실시간 지수 API를 불러오지 못해 참고 시세를 표시합니다. 재연결 중…";
@@ -265,15 +373,18 @@ export default function InvestingMarketsHub({
               role="tab"
               aria-selected={region === item.id}
               className={`inv-region-nav-item${region === item.id ? " is-active" : ""}`}
-              onClick={() => setRegion(item.id)}
+              onClick={() => selectRegion(item.id)}
             >
-              {item.label}
+              <span>{item.label}</span>
+              {item.hint ? <span className="inv-region-nav-hint">{item.hint}</span> : null}
             </button>
           ))}
         </div>
         <div className="inv-hub-meta">
           <LiveStreamBadge connected={isConnected} className="inv-live-badge--inline" />
-          <span className="inv-hub-meta-text">시세 · WebSocket</span>
+          <span className="inv-hub-meta-text">
+            {isConnected ? "실시간 시세 연결됨" : "시세 갱신 중"}
+          </span>
         </div>
       </div>
 
@@ -283,6 +394,21 @@ export default function InvestingMarketsHub({
           <ErrorState title="지수를 불러오지 못했습니다" onRetry={() => void refetch()} />
         )}
 
+        <RegionalWorldMap
+          indices={allIndices}
+          stockChanges={mapStockChanges}
+          activeRegion={region}
+          onRegionSelect={selectRegion}
+          streamConnected={isConnected}
+        />
+
+        <div id="markets-hub-detail" ref={hubDetailRef} className="inv-hub-detail-anchor">
+          <MarketsHubActiveFilter
+            region={region}
+            onSelectOverview={() => selectRegion("overview", { scrollToDetail: false })}
+          />
+        </div>
+
         <div className="inv-hub-content-tabs" role="tablist" aria-label="시장 콘텐츠">
           {MARKETS_CONTENT_TABS.map((tab) => (
             <button
@@ -291,7 +417,7 @@ export default function InvestingMarketsHub({
               role="tab"
               aria-selected={contentTab === tab.id}
               className={`inv-hub-content-tab${contentTab === tab.id ? " is-active" : ""}`}
-              onClick={() => setContentTab(tab.id)}
+              onClick={() => selectContentTab(tab.id)}
             >
               {tab.label}
             </button>
@@ -342,10 +468,11 @@ export default function InvestingMarketsHub({
         )}
 
         <nav className="inv-hub-board-links" aria-label="종목 보드">
-          <Link href="/korea">한국 종목 보드</Link>
-          <Link href="/us">미국 종목 보드</Link>
-          <Link href="/news">뉴스 · 피드</Link>
-          <Link href="/calendar">경제 캘린더</Link>
+          <AppLink href="/korea">한국 종목 보드</AppLink>
+          <AppLink href="/us">미국 종목 보드</AppLink>
+          <AppLink href="/watchlist">관심종목</AppLink>
+          <AppLink href="/news">뉴스 · 피드</AppLink>
+          <AppLink href="/calendar">경제 캘린더</AppLink>
         </nav>
       </div>
     </div>

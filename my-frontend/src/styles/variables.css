@@ -101,6 +101,26 @@
 
   --header-height: 56px;
   --mobile-header-height: 52px;
+  --primary-navigation-height: 44px;
+  /** MarketStatusBar·하위 탭 sticky — 모바일 헤더 / 데스크톱 헤더+1차 네비 아래 */
+  --app-market-chrome-sticky-top: var(--mobile-header-height);
+  --app-market-chrome-block-min: 52px;
+  --app-market-chrome-subnav-height: 46px;
+  --app-market-sessions-mobile-height: 36px;
+  --app-market-chrome-extended-stack: calc(
+    var(--app-market-chrome-block-min) + var(--app-market-chrome-subnav-height)
+  );
+  /** 티커 레일 — padding 14+16 + 카드 min-height 96 */
+  /* 티커 카드(96) + padding(30) + 스크롤바 여유 */
+  --app-market-chrome-ticker-height: 138px;
+  --app-market-chrome-stack-with-ticker: calc(
+    var(--app-market-chrome-block-min) + var(--app-market-chrome-ticker-height)
+  );
+  --app-market-chrome-stack-pinned: var(--app-market-chrome-stack-with-ticker);
+  --app-market-chrome-bg: var(--market-status-bg);
+  --app-market-chrome-pinned-shadow: 0 4px 16px rgb(15 23 42 / 8%);
+  --scroll-padding-top: var(--mobile-header-height);
+  --page-table-sticky-top: var(--scroll-padding-top);
   --bottom-navigation-height: 56px;
   /** 3열 레이아웃 — 우측 위젯·도구 레일 sticky 기준 */
   --layout-sticky-top: 12px;
@@ -137,9 +157,24 @@
   --session-open-border: #99f6e4;
   --session-open-bg: linear-gradient(180deg, #fff 0%, #ecfdf5 100%);
   --session-open-strong: #0f766e;
+  --session-open-label: #0d9488;
   --session-pre-border: #fde68a;
   --session-pre-bg: linear-gradient(180deg, #fff 0%, #fffbeb 100%);
   --session-pre-strong: #b45309;
+  --session-pre-label: #b45309;
+  --session-closed-border: #cbd5e1;
+  --session-closed-bg: linear-gradient(180deg, #fff 0%, #f1f5f9 100%);
+  --session-closed-strong: #475569;
+  --session-closed-label: #64748b;
+  --session-selected-open-inset: rgb(15 118 110 / 18%);
+  --session-selected-closed-inset: rgb(71 85 105 / 16%);
+  --session-us-closed-border: #93c5fd;
+  --session-us-closed-bg: linear-gradient(180deg, #fff 0%, #eff6ff 100%);
+  --session-us-closed-label: #2563eb;
+  --session-us-closed-strong: #1d4ed8;
+  --session-selected-us-closed-inset: rgb(37 99 235 / 18%);
+  --session-pill-selected-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+  --session-pill-selected-shadow-hover: 0 2px 6px rgb(15 23 42 / 10%);
 
   --market-rail-bg: linear-gradient(180deg, var(--surface) 0%, var(--surface-muted) 100%);
   --market-status-bg: linear-gradient(180deg, var(--surface) 0%, var(--surface-muted) 100%);
@@ -255,8 +290,23 @@
 
   --session-open-border: rgb(52 211 153 / 35%);
   --session-open-bg: linear-gradient(180deg, rgb(52 211 153 / 14%) 0%, rgb(52 211 153 / 6%) 100%);
-  --session-open-strong: #34d399;
+  --session-open-strong: #6ee7b7;
+  --session-open-label: #5eead4;
   --session-pre-border: rgb(251 191 36 / 35%);
   --session-pre-bg: linear-gradient(180deg, rgb(251 191 36 / 14%) 0%, rgb(251 191 36 / 6%) 100%);
   --session-pre-strong: #fbbf24;
+  --session-pre-label: #fbbf24;
+  --session-closed-border: rgb(100 116 139 / 40%);
+  --session-closed-bg: linear-gradient(180deg, rgb(148 163 184 / 12%) 0%, rgb(71 85 105 / 10%) 100%);
+  --session-closed-strong: #cbd5e1;
+  --session-closed-label: #8b95a5;
+  --session-selected-open-inset: rgb(52 211 153 / 12%);
+  --session-selected-closed-inset: rgb(148 163 184 / 15%);
+  --session-us-closed-border: rgb(77 157 255 / 42%);
+  --session-us-closed-bg: linear-gradient(180deg, rgb(77 157 255 / 16%) 0%, rgb(77 157 255 / 6%) 100%);
+  --session-us-closed-label: #60a5fa;
+  --session-us-closed-strong: #93c5fd;
+  --session-selected-us-closed-inset: rgb(77 157 255 / 14%);
+  --session-pill-selected-shadow: none;
+  --session-pill-selected-shadow-hover: none;
 }

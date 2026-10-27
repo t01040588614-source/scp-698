@@ -5,11 +5,17 @@ import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { stockApi } from "@/lib/api";
 import {
+  formatEquityMarketCap,
   koreaToEquity,
-  resolveLiveEquityQuote,
+  resolveLiveEquityQuoteFromMaps,
   usToEquity,
   type EquityQuote,
 } from "@/lib/equityQuotes";
+import {
+  fundamentalsCoverage,
+  rowsForMarketCapRank,
+  sortRankHint,
+} from "@/lib/fundamentalsDisplay";
 import { formatPercent, formatPrice, priceClass } from "@/lib/format";
 import {
   cacheStatusRefetchMs,
@@ -34,6 +40,8 @@ type MarketSidebarWidgetsProps = {
   liveIndices?: MarketIndexQuote[];
   indicesStreamConnected?: boolean;
   subscribeIndexIds?: string[];
+  /** 종목 상세 사이드 — 지수·랭킹만 간략히 */
+  compactSidebar?: boolean;
 };
 
 function WidgetList({
@@ -44,6 +52,8 @@ function WidgetList({
   liveQuotes,
   liveTicks,
   flash,
+  subtitle,
+  showMarketCap,
 }: {
   title: string;
   rows: EquityQuote[];
@@ -52,20 +62,25 @@ function WidgetList({
   liveQuotes: Record<string, number>;
   liveTicks: Record<string, import("@/lib/wsNormalize").LiveStockTick>;
   flash: Record<string, "up" | "down">;
+  subtitle?: string | null;
+  showMarketCap?: boolean;
 }) {
   const decimals = market === "korea" ? 0 : 2;
   const [listRef] = useSmoothReorder(360);
   return (
     <section className="inv-widget">
       <header className="inv-widget-head">
-        <h3 className="inv-widget-title">{title}</h3>
+        <div className="inv-widget-head-text">
+          <h3 className="inv-widget-title">{title}</h3>
+          {subtitle ? <p className="inv-widget-subtitle">{subtitle}</p> : null}
+        </div>
         <Link href={href} className="inv-widget-more">
           더보기
         </Link>
       </header>
       <ul ref={listRef} className="inv-widget-list inv-smooth-rank">
         {rows.map((r) => {
-          const merged = resolveLiveEquityQuote(r, liveQuotes[r.symbol], liveTicks[r.symbol]);
+          const merged = resolveLiveEquityQuoteFromMaps(r, liveQuotes, liveTicks);
           const flashDir = flash[r.symbol];
           return (
             <li key={r.symbol}>
@@ -79,6 +94,11 @@ function WidgetList({
                   nameClassName="inv-widget-name-text"
                 />
                 <span className="inv-widget-right">
+                  {showMarketCap && (r.marketCap ?? 0) > 0 ? (
+                    <span className="inv-widget-mcap tabular" title="시가총액">
+                      {formatEquityMarketCap(r.marketCap, r.currency)}
+                    </span>
+                  ) : null}
                   <span className={`tabular${flashDir ? ` is-flash-${flashDir}` : ""}`}>
                     {formatPrice(merged.price, decimals)}
                   </span>
@@ -104,6 +124,7 @@ export default function MarketSidebarWidgets({
   liveIndices,
   indicesStreamConnected,
   subscribeIndexIds,
+  compactSidebar = false,
 }: MarketSidebarWidgetsProps) {
   const wsCtx = useMarketWebSocketContext();
   const streamConnected = wsCtx?.isConnected ?? false;
@@ -149,7 +170,7 @@ export default function MarketSidebarWidgets({
 
   const liveMetric = useCallback(
     (r: EquityQuote) =>
-      resolveLiveEquityQuote(r, rankingQuotes[r.symbol], rankingTicks[r.symbol]),
+      resolveLiveEquityQuoteFromMaps(r, rankingQuotes, rankingTicks),
     [rankingQuotes, rankingTicks]
   );
 
@@ -161,8 +182,8 @@ export default function MarketSidebarWidgets({
             liveMetric(b).changePercent - liveMetric(a).changePercent ||
             liveMetric(b).volume - liveMetric(a).volume
         )
-        .slice(0, 5),
-    [rows, liveMetric]
+        .slice(0, compactSidebar ? 4 : 5),
+    [rows, liveMetric, compactSidebar]
   );
   const losers = useMemo(
     () =>
@@ -172,26 +193,22 @@ export default function MarketSidebarWidgets({
             liveMetric(a).changePercent - liveMetric(b).changePercent ||
             liveMetric(b).volume - liveMetric(a).volume
         )
-        .slice(0, 5),
-    [rows, liveMetric]
+        .slice(0, compactSidebar ? 4 : 5),
+    [rows, liveMetric, compactSidebar]
   );
   const active = useMemo(
     () =>
       [...rows]
         .sort((a, b) => liveMetric(b).volume - liveMetric(a).volume)
-        .slice(0, 5),
-    [rows, liveMetric]
+        .slice(0, compactSidebar ? 4 : 5),
+    [rows, liveMetric, compactSidebar]
   );
-  const byMcap = useMemo(
-    () =>
-      [...rows]
-        .sort(
-          (a, b) =>
-            (b.marketCap ?? 0) - (a.marketCap ?? 0) ||
-            liveMetric(b).volume - liveMetric(a).volume
-        )
-        .slice(0, 5),
-    [rows, liveMetric]
+  const byMcap = useMemo(() => rowsForMarketCapRank(rows), [rows]);
+
+  const fundamentalsCov = useMemo(() => fundamentalsCoverage(rows), [rows]);
+  const mcapRankHint = useMemo(
+    () => sortRankHint("marketCap", fundamentalsCov),
+    [fundamentalsCov]
   );
 
   const listHref = market === "us" ? "/us" : "/korea";
@@ -204,6 +221,7 @@ export default function MarketSidebarWidgets({
           liveIndices={liveIndices}
           indicesStreamConnected={indicesStreamConnected}
           subscribeIndexIds={subscribeIndexIds}
+          compact={compactSidebar}
         />
       )}
       {showRankings && (
@@ -226,33 +244,66 @@ export default function MarketSidebarWidgets({
             liveTicks={rankingTicks}
             flash={rankingFlash}
           />
-          <WidgetList
-            title="거래량 TOP"
-            rows={active}
-            href={listHref}
-            market={market}
-            liveQuotes={rankingQuotes}
-            liveTicks={rankingTicks}
-            flash={rankingFlash}
-          />
-          <WidgetList
-            title="시가총액 TOP"
-            rows={byMcap}
-            href={listHref}
-            market={market}
-            liveQuotes={rankingQuotes}
-            liveTicks={rankingTicks}
-            flash={rankingFlash}
-          />
+          {!compactSidebar ? (
+            <>
+              <WidgetList
+                title="거래량 TOP"
+                rows={active}
+                href={listHref}
+                market={market}
+                liveQuotes={rankingQuotes}
+                liveTicks={rankingTicks}
+                flash={rankingFlash}
+              />
+              <WidgetList
+                title="시가총액 TOP"
+                rows={byMcap}
+                href={listHref}
+                market={market}
+                liveQuotes={rankingQuotes}
+                liveTicks={rankingTicks}
+                flash={rankingFlash}
+                subtitle={mcapRankHint}
+                showMarketCap
+              />
+            </>
+          ) : (
+            <>
+              <WidgetList
+                title="거래량 TOP"
+                rows={active}
+                href={listHref}
+                market={market}
+                liveQuotes={rankingQuotes}
+                liveTicks={rankingTicks}
+                flash={rankingFlash}
+              />
+              <WidgetList
+                title="시가총액 TOP"
+                rows={byMcap}
+                href={listHref}
+                market={market}
+                liveQuotes={rankingQuotes}
+                liveTicks={rankingTicks}
+                flash={rankingFlash}
+                subtitle={mcapRankHint}
+                showMarketCap
+              />
+            </>
+          )}
         </>
       )}
       {showNews && (
-        <section className="inv-widget inv-widget--stack">
+        <section
+          className={`inv-widget inv-widget--stack${compactSidebar ? " inv-widget--stack-compact" : ""}`}
+        >
           <NewsList compact />
         </section>
       )}
       {showCalendar && (
-        <section className="inv-widget inv-widget--stack">
+        <section
+          className={`inv-widget inv-widget--stack${compactSidebar ? " inv-widget--stack-compact" : ""}`}
+        >
           <EconomicCalendar compact defaultCountry={market === "us" ? "US" : "ALL"} />
         </section>
       )}

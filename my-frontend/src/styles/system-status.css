@@ -4,6 +4,17 @@
   gap: 16px;
 }
 
+.yahoo-throttle-banner {
+  background: color-mix(in srgb, var(--warning, #e67e22) 12%, var(--surface, #fff));
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.yahoo-throttle-banner strong {
+  font-weight: 700;
+}
+
 .ws-offline-banner {
   background: var(--warning-light, #fff4e6);
   border-bottom: 1px solid var(--border-color);
@@ -27,7 +38,7 @@
 }
 
 .system-status-panel {
-  scroll-margin-top: 72px;
+  scroll-margin-top: var(--scroll-padding-top, 72px);
 }
 
 .system-status-toolbar {
@@ -92,6 +103,53 @@
 
 .system-status-error {
   color: var(--negative, #d64045);
+}
+
+.quote-refresh-desc {
+  margin: 4px 0 0;
+}
+
+.quote-refresh-options {
+  display: grid;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+
+.quote-refresh-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.quote-refresh-option.is-active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.quote-refresh-option input {
+  margin-top: 3px;
+}
+
+.quote-refresh-option-label {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.quote-refresh-option-hint {
+  grid-column: 2;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.quote-refresh-foot {
+  padding-top: 0;
 }
 
 .market-meta-refresh {

@@ -5,6 +5,7 @@ import type { MarketIndexQuote } from "@/types/stock";
 import { useMarketWebSocketContext } from "@/context/MarketWebSocketProvider";
 import { useStableSymbolList } from "@/hooks/useStableSymbolList";
 import type { LiveStockTick } from "@/lib/wsNormalize";
+import { pickWsQuote, pickWsTick } from "@/lib/wsSymbolKey";
 
 export function useMarketWebSocket(symbols: string[] = [], indexIds: string[] = []) {
   const ctx = useMarketWebSocketContext();
@@ -21,13 +22,14 @@ export function useMarketWebSocket(symbols: string[] = [], indexIds: string[] = 
     if (!ctx) return {};
     const out: Record<string, number> = {};
     for (const s of stableSymbols) {
-      const t = ctx.ticks[s]?.price;
-      const q = ctx.quotes[s];
+      const tick = pickWsTick(s, ctx.ticks);
+      const t = tick?.price;
+      const q = pickWsQuote(s, ctx.quotes);
       if (t !== undefined && Number.isFinite(t) && t > 0) out[s] = t;
       else if (q !== undefined && Number.isFinite(q)) out[s] = q;
     }
     return out;
-  }, [ctx, ctx?.quotes, ctx?.ticks, stableSymbols]);
+  }, [ctx, stableSymbols]);
 
   const indices = useMemo((): MarketIndexQuote[] => {
     if (!ctx || stableIndexIds.length === 0) return [];
@@ -39,11 +41,11 @@ export function useMarketWebSocket(symbols: string[] = [], indexIds: string[] = 
     if (!ctx) return {};
     const out: Record<string, LiveStockTick> = {};
     for (const s of stableSymbols) {
-      const t = ctx.ticks[s];
+      const t = pickWsTick(s, ctx.ticks);
       if (t) out[s] = t;
     }
     return out;
-  }, [ctx, ctx?.ticks, stableSymbols]);
+  }, [ctx, stableSymbols]);
 
   return {
     quotes,

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { buildLoginHref } from "@/lib/authNavigation";
 import { uiConfig } from "@/config/uiConfig";
 import { useStockSearchAutocomplete } from "@/hooks/useStockSearchAutocomplete";
 import ThemeToggle from "@/components/common/ThemeToggle";
@@ -22,9 +24,16 @@ export default function MobileHeader({
   onMenuClose,
 }: MobileHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const { isAuthenticated, user, logout } = useAuth();
+  const loginHref = buildLoginHref(pathname ?? "/");
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const { results, loading: searchLoading } = useStockSearchAutocomplete(query);
+
+  useEffect(() => {
+    setSearchOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (isMenuOpen) {
@@ -167,6 +176,32 @@ export default function MobileHeader({
                   {item.label}
                 </Link>
               ))}
+            </div>
+            <div className="mobile-menu-legacy">
+              <p>계정</p>
+              {isAuthenticated ? (
+                <>
+                  <span className="text-muted-sm">{user?.username}님</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      onMenuClose();
+                    }}
+                  >
+                    로그아웃
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link href={loginHref} onClick={onMenuClose}>
+                    로그인
+                  </Link>
+                  <Link href="/register" onClick={onMenuClose}>
+                    회원가입
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </>

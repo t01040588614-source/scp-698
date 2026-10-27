@@ -85,6 +85,13 @@ export function formatCompactVolume(value: number | null | undefined): string {
   return new Intl.NumberFormat("ko-KR").format(Math.round(value));
 }
 
+/** 종목 상세·차트 — 한국 정수, 미국 cent (1달 미만은 4자리) */
+export function priceDecimalsForEquity(market: "korea" | "us", price?: number): number {
+  if (market === "korea") return 0;
+  if (price != null && Number.isFinite(price) && price > 0 && price < 1) return 4;
+  return 2;
+}
+
 export function formatIndexPrice(indexId: string, price: number): string {
   if (indexId === "usd-krw") return formatPrice(price, 2);
   if (indexId === "kosdaq" || indexId === "kospi") return formatPrice(price, 2);

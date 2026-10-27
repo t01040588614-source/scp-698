@@ -2,9 +2,14 @@
 
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { getMarketSession, type MarketRegion } from "@/lib/marketSession";
+import {
+  marketSessionFromKind,
+  type MarketRegion,
+  type MarketSession,
+} from "@/lib/marketSession";
 import { useLiveMarketSessions } from "@/hooks/useLiveMarketSessions";
 import { stockApi } from "@/lib/api";
+import { invalidateMarketQueries } from "@/lib/invalidateMarketQueries";
 
 import type { StocksSourceLabel } from "@/lib/mapStocksSource";
 
@@ -25,6 +30,8 @@ function formatUpdatedAt(ts?: number) {
   return new Date(ts).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+const PENDING_SESSION: MarketSession = { label: "…", state: "closed", detail: "" };
+
 export default function MarketBoardMeta({
   market,
   stockCount,
@@ -40,12 +47,12 @@ export default function MarketBoardMeta({
   const refresh = useMutation({
     mutationFn: () => stockApi.refreshMarketCache(),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["marketCacheStatus"] });
-      void qc.invalidateQueries({ queryKey: market === "us" ? ["usStocks"] : ["koreaStocks"] });
+      invalidateMarketQueries(qc);
     },
   });
   const live = useLiveMarketSessions();
-  const session = getMarketSession(market);
+  const sessionKind = market === "korea" ? live.kr : live.us;
+  const session = live.ready ? marketSessionFromKind(market, sessionKind) : PENDING_SESSION;
   const sessionDetail =
     (market === "korea" ? live.krDetail : live.usDetail) ?? session.detail;
   const listHref = market === "us" ? "/us" : "/korea";
@@ -53,7 +60,9 @@ export default function MarketBoardMeta({
 
   return (
     <div className="market-board-meta" role="status" aria-live="polite">
-      <span className={`market-session market-session--${session.state}`}>{session.label}</span>
+      <span className={`market-session market-session--${session.state}`} suppressHydrationWarning>
+        {session.label}
+      </span>
       <span className="market-meta-muted">{sessionDetail}</span>
       <span className="market-meta-sep" aria-hidden>
         ·
@@ -75,7 +84,7 @@ export default function MarketBoardMeta({
             ·
           </span>
           <span className="market-meta-live">
-            종목 {stocksSource === "fdr" ? "KRX 일봉" : "Yahoo"} · WS 1초
+            종목 {stocksSource === "fdr" ? "KRX 일봉" : "Yahoo"} · WS 장중 ~0.35초
           </span>
         </>
       )}
@@ -85,7 +94,7 @@ export default function MarketBoardMeta({
             ·
           </span>
           <span className="market-meta-warn" title={stocksNotice ?? undefined}>
-            종목 참고 시세
+            종목 참고 시세{market === "korea" ? " · KRX 시총" : ""}
           </span>
         </>
       )}

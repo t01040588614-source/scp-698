@@ -11,16 +11,16 @@ function StocksBoard() {
   return <KoreaMarketWithScreener sectorFilter={searchParams.get("sector")} />;
 }
 
-/** DOCX /stocks — 한국 스크리너·종목 보드 ( /korea 와 동일 기능 ) */
+/** /stocks — 한국 스크리너·종목 보드 (/korea 와 동일 기능) */
 export default function StocksPage() {
   return (
     <InvestingPageLayout
       breadcrumbs={[
         { label: "홈", href: "/korea" },
-        { label: "종목 (/stocks)" },
+        { label: "스크리너" },
       ]}
-      title="한국 주식 (DOCX /stocks)"
-      description="필터·정렬·스크리너 저장 — Investing.com 한국 종목 목록 명세"
+      title="종목 스크리너"
+      description="필터·정렬·스크리너 저장으로 한국 종목을 찾아보세요."
       sidebar={{ market: "korea", showNews: true, showCalendar: true, showRankings: true }}
       compactHead
     >

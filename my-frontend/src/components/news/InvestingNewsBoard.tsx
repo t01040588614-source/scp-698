@@ -21,8 +21,8 @@ export default function InvestingNewsBoard() {
   });
 
   const indexItems = useMemo(
-    () => buildBoardIndexStripItems("korea", indexPayload?.data, wsIndices),
-    [indexPayload?.data, wsIndices]
+    () => buildBoardIndexStripItems("korea", indexPayload?.data, wsIndices, isConnected),
+    [indexPayload?.data, wsIndices, isConnected]
   );
 
   return (

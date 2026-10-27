@@ -69,9 +69,13 @@ export function readPriceAlerts(): PriceAlert[] {
   }
 }
 
-export function writePriceAlerts(alerts: PriceAlert[]) {
+export function writePriceAlerts(alerts: PriceAlert[], options?: { pushToServer?: boolean }) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(alerts.slice(0, 100)));
   window.dispatchEvent(new Event("price-alerts-changed"));
+  const push = options?.pushToServer !== false;
+  if (push && typeof window !== "undefined" && localStorage.getItem("token")) {
+    void import("@/lib/userDataSync").then((m) => m.pushPriceAlertsToServer().catch(() => undefined));
+  }
 }
 
 export function addPriceAlert(input: {

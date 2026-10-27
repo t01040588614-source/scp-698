@@ -40,9 +40,57 @@
 }
 
 main.app-main {
+  position: relative;
+  z-index: 1;
   min-width: 0;
-  overflow-x: clip;
+  /* overflow-x: clip 은 표 thead position:sticky 를 깨뜨려 헤더가 행 사이에 끼는 현상 유발 */
+  overflow-x: visible;
   overflow-y: visible;
+}
+
+/* 상단 헤더·1차 네비만 sticky — 시장 크롬(티커·빠른 이동)은 본문과 함께 스크롤 */
+.desktop-header {
+  position: sticky;
+  top: 0;
+  z-index: 42;
+}
+
+@media (min-width: 768px) {
+  .primary-navigation-bar {
+    position: sticky;
+    top: var(--header-height);
+    z-index: 41;
+  }
+
+  :root {
+    --app-market-chrome-sticky-top: calc(
+      var(--header-height) + var(--primary-navigation-height)
+    );
+    --scroll-padding-top: calc(var(--header-height) + var(--primary-navigation-height));
+    --page-table-sticky-top: var(--scroll-padding-top);
+  }
+}
+
+@media (max-width: 767px) {
+  .mobile-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+}
+
+.app-market-chrome-sticky {
+  position: relative;
+  z-index: 2;
+}
+
+/* 고정 사이드(z-index 20)보다 헤더·KR/US pill·하위 메뉴가 항상 클릭 가능 */
+.inv-market-status,
+.inv-market-subnav,
+.inv-market-sessions-mobile,
+.app-highlight-bar {
+  position: relative;
+  z-index: 1;
 }
 
 .inv-layout-3col,
@@ -51,6 +99,17 @@ main.app-main {
 .inv-market-board,
 .page-section--market {
   min-width: 0;
+}
+
+.page-section--market > .inv-layout-3col {
+  width: 100%;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.page-section--market > .inv-layout-3col .inv-split-aside {
+  background: var(--surface-muted);
 }
 
 /* Tailwind preflight 이후 표·버튼 기본 */
@@ -76,6 +135,19 @@ button.btn-primary {
   .inv-market-board .inv-layout-3col.inv-layout-3col--no-rail,
   .inv-layout-3col:not(.inv-layout-3col--keep-rail) {
     grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .inv-layout-3col .inv-side-slot--rail {
+    display: none;
+  }
+
+  .inv-layout-3col .inv-side-slot--aside {
+    display: block !important;
+    visibility: visible;
+    width: 100%;
+    min-width: 0;
+    max-height: none;
+    overflow: visible;
   }
 
   .inv-market-board .inv-split-aside,
@@ -116,9 +188,9 @@ button.btn-primary {
   }
 }
 
-.inv-split-main .inv-table-wrap {
+.inv-split-main .inv-table-wrap:not(.inv-table-wrap--equities) {
   max-height: none;
-  overflow-x: auto;
+  overflow-x: visible;
   overflow-y: visible;
 }
 
@@ -132,6 +204,18 @@ button.btn-primary {
 @media (max-width: 767px) {
   .inv-page-head--band {
     padding: var(--space-3) var(--space-4);
+  }
+
+  .page-section--market .inv-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  .page-section--market .inv-side-slot--rail {
+    display: none;
   }
 
   .market-ticker-bleed::before,

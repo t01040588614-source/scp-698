@@ -12,10 +12,16 @@ import {
   normalizeChartPeriod,
   type ChartHubPeriodId,
 } from "@/config/chartPeriods";
-import type { IntradayIntervalId } from "@/config/chartIntraday";
+import { resolveChartHistoryInterval, type IntradayIntervalId } from "@/config/chartIntraday";
 import { useLiveSymbols } from "@/hooks/useLiveSymbols";
 import { useChartPeriodReturns } from "@/hooks/useChartPeriodReturns";
 import { mergeLiveStockPrice } from "@/lib/liveQuoteMerge";
+import { patchLastPointWithLiveQuote } from "@/lib/chartSeries";
+import {
+  alignedStockHistory,
+  chartDisplayInterval,
+  syncIntradayForChartPeriod,
+} from "@/lib/chartPeriodSelection";
 import { stockApi } from "@/lib/api";
 
 type Props = {
@@ -29,7 +35,7 @@ export default function KrLightweightCandleChart({ code, height = CHART_HEIGHT.s
   const [intradayInterval, setIntradayInterval] = useState<IntradayIntervalId>("5m");
 
   const { quotes, isConnected } = useLiveSymbols([code]);
-  const historyInterval = period === "1d" || period === "1w" ? intradayInterval : undefined;
+  const historyInterval = resolveChartHistoryInterval(period, intradayInterval);
 
   const { data, isLoading } = useQuery({
     queryKey: ["kr-lwc-chart", code, period, historyInterval],
@@ -57,8 +63,11 @@ export default function KrLightweightCandleChart({ code, height = CHART_HEIGHT.s
     },
   });
 
-  const points = useMemo(() => data?.points ?? [], [data?.points]);
-  const summary = data?.summary;
+  const historyAligned = alignedStockHistory(data, period);
+  const historyPeriodMismatch = Boolean(data && !historyAligned);
+  const chartDataInterval = chartDisplayInterval(period, historyAligned);
+  const points = useMemo(() => historyAligned?.points ?? [], [historyAligned?.points]);
+  const summary = historyAligned?.summary;
   const wsPrice = quotes[code];
 
   const live = useMemo(() => {
@@ -69,20 +78,20 @@ export default function KrLightweightCandleChart({ code, height = CHART_HEIGHT.s
     return mergeLiveStockPrice(basePrice, baseChange, basePct, prevClose, wsPrice);
   }, [koreaRow, summary, wsPrice]);
 
-  const chartPoints = useMemo(() => {
-    if (points.length < 2) return points;
-    const last = points[points.length - 1];
-    return [
-      ...points.slice(0, -1),
-      {
-        ...last,
-        close: live.price,
-        high: Math.max(last.high, live.price),
-        low: Math.min(last.low, live.price),
-        value: live.price,
-      },
-    ];
-  }, [points, live.price]);
+  const chartPoints = useMemo(
+    () =>
+      patchLastPointWithLiveQuote(points, {
+        price: live.price,
+        volume: koreaRow?.volume,
+        open: koreaRow?.open,
+        high: koreaRow?.high,
+        low: koreaRow?.low,
+      }, {
+        useSessionHighLow: period === "1d",
+        isIntradaySession: period === "1d" && /m$|h$/.test(chartDataInterval ?? ""),
+      }),
+    [points, live.price, koreaRow, period, chartDataInterval],
+  );
 
   const displayPoints = chartPoints.length >= 2 ? chartPoints : points;
 
@@ -100,16 +109,21 @@ export default function KrLightweightCandleChart({ code, height = CHART_HEIGHT.s
         symbolLabel={code}
         subtitle={name ?? koreaRow?.name ?? code}
         points={displayPoints}
-        loading={isLoading}
+        loading={isLoading || historyPeriodMismatch}
         height={height}
         period={period}
-        onPeriodChange={(p) => setPeriod(normalizeChartPeriod(p))}
+        onPeriodChange={(p) => {
+          const next = normalizeChartPeriod(p);
+          setPeriod(next);
+          syncIntradayForChartPeriod(next, setIntradayInterval);
+        }}
         priceDecimals={0}
         hideChartTypes
         hidePeriodToolbar
         showVolume
-        chartType="area"
+        chartType="candle"
         streamingLayout
+        equityPage
         market="korea"
         venueLabel="서울"
         referencePrice={koreaRow?.previousClose ?? summary?.open}
@@ -119,7 +133,7 @@ export default function KrLightweightCandleChart({ code, height = CHART_HEIGHT.s
         intradayInterval={intradayInterval}
         onIntradayIntervalChange={setIntradayInterval}
         enableLiveTail={isConnected}
-        dataInterval={data?.interval}
+        dataInterval={chartDataInterval}
         liveOhlc={
           summary
             ? {
@@ -133,7 +147,11 @@ export default function KrLightweightCandleChart({ code, height = CHART_HEIGHT.s
       />
       <ChartPeriodPerformanceStrip
         activePeriod={period}
-        onSelect={(p) => setPeriod(normalizeChartPeriod(p))}
+        onSelect={(p) => {
+          const next = normalizeChartPeriod(p);
+          setPeriod(next);
+          syncIntradayForChartPeriod(next, setIntradayInterval);
+        }}
         returns={periodReturns}
         loading={perfLoading}
       />

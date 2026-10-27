@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import AppLink from "@/components/common/AppLink";
+import { usePathname, useRouter } from "next/navigation";
+import { buildLoginHref } from "@/lib/authNavigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useStockSearchAutocomplete } from "@/hooks/useStockSearchAutocomplete";
@@ -12,7 +13,9 @@ import StockCompanyLogo from "@/components/market/StockCompanyLogo";
 
 export default function DesktopHeader() {
   const router = useRouter();
+  const pathname = usePathname();
   const { isAuthenticated, user, logout } = useAuth();
+  const loginHref = buildLoginHref(pathname ?? "/");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -127,7 +130,7 @@ export default function DesktopHeader() {
                 </p>
               ) : (
                 results.map((item, index) => (
-                  <Link
+                  <AppLink
                     key={item.id}
                     href={`/quote/${item.market}/${item.symbol}`}
                     role="option"
@@ -147,7 +150,7 @@ export default function DesktopHeader() {
                         {item.symbol} · {item.type}
                       </span>
                     </span>
-                  </Link>
+                  </AppLink>
                 ))
               )}
             </div>
@@ -155,7 +158,7 @@ export default function DesktopHeader() {
         </div>
 
         <nav className="desktop-actions" aria-label="사용자 메뉴">
-          <Link href="/portfolio">포트폴리오</Link>
+          <AppLink href="/portfolio">포트폴리오</AppLink>
           <ThemeToggle />
           {isAuthenticated ? (
             <>
@@ -166,10 +169,10 @@ export default function DesktopHeader() {
             </>
           ) : (
             <>
-              <Link href="/login">로그인</Link>
-              <Link href="/register" className="app-header-cta">
+              <AppLink href={loginHref}>로그인</AppLink>
+              <AppLink href="/register" className="app-header-cta">
                 가입하기
-              </Link>
+              </AppLink>
             </>
           )}
         </nav>

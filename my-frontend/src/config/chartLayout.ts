@@ -11,6 +11,7 @@ export const CHART_HEIGHT = {
   equityDesktop: 460,
   equityMobile: 360,
   sidebar: 268,
+  sidebarCompact: 200,
   stockDetail: 320,
   tossKr: 420,
   portfolioPie: 300,

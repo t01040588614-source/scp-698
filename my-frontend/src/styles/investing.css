@@ -193,8 +193,9 @@
 
 .inv-table-wrap {
   width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  overflow-x: visible;
+  overflow-y: visible;
 }
 
 .inv-table {
@@ -204,13 +205,35 @@
   font-size: 13px;
 }
 
-.inv-split-main .inv-table thead,
-.inv-table-wrap > .inv-table thead {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--inv-table-header-bg);
-  box-shadow: 0 1px 0 var(--border-color);
+/* sticky thead — 종목 표(.inv-table-wrap--equities)는 market-board.css 에서 처리 */
+@media (min-width: 768px) {
+  .inv-split-main .inv-table-wrap:not(.inv-table-wrap--equities) > .inv-table,
+  .inv-table-wrap:not(.inv-table-wrap--equities) > .inv-table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .inv-split-main .inv-table-wrap:not(.inv-table-wrap--equities) > .inv-table thead th,
+  .inv-table-wrap:not(.inv-table-wrap--equities) > .inv-table thead th {
+    position: sticky;
+    top: var(--page-table-sticky-top, 0);
+    z-index: 3;
+    background: var(--inv-table-header-bg);
+    box-shadow: 0 1px 0 var(--border-color);
+  }
+}
+
+@media (max-width: 767px) {
+  .inv-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  .inv-table-wrap:not(.inv-table-wrap--equities) > .inv-table thead th {
+    position: static;
+    z-index: auto;
+  }
 }
 
 .inv-table th {
@@ -481,7 +504,8 @@
   }
 
   .inv-layout-3col {
-    display: block;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .inv-split-aside {
@@ -626,6 +650,71 @@ a.inv-session-pill.inv-session-pill--btn:focus-visible {
   outline-offset: 2px;
 }
 
+/* 선택 = primary 링 + 장 상태별 inset (라이트·다크 공통 토큰) */
+a.inv-session-pill.inv-session-pill--btn.inv-session-pill--selected {
+  opacity: 1;
+}
+
+a.inv-session-pill.inv-session-pill--open.inv-session-pill--btn.inv-session-pill--selected {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    inset 0 0 0 1px var(--session-selected-open-inset),
+    var(--session-pill-selected-shadow);
+}
+
+a.inv-session-pill.inv-session-pill--open.inv-session-pill--btn.inv-session-pill--selected:hover {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    inset 0 0 0 1px var(--session-selected-open-inset),
+    var(--session-pill-selected-shadow-hover);
+}
+
+a.inv-session-pill.inv-session-pill--closed.inv-session-pill--btn.inv-session-pill--selected,
+a.inv-session-pill.inv-session-pill--after.inv-session-pill--btn.inv-session-pill--selected {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    inset 0 0 0 1px var(--session-selected-closed-inset),
+    var(--session-pill-selected-shadow);
+}
+
+a.inv-session-pill.inv-session-pill--closed.inv-session-pill--btn.inv-session-pill--selected:hover,
+a.inv-session-pill.inv-session-pill--after.inv-session-pill--btn.inv-session-pill--selected:hover {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    inset 0 0 0 1px var(--session-selected-closed-inset),
+    var(--session-pill-selected-shadow-hover);
+}
+
+a.inv-session-pill.inv-session-pill--pre.inv-session-pill--btn.inv-session-pill--selected {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    inset 0 0 0 1px rgb(180 83 9 / 16%),
+    var(--session-pill-selected-shadow);
+}
+
+a.inv-session-pill.inv-session-pill--pre.inv-session-pill--btn.inv-session-pill--selected:hover {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    inset 0 0 0 1px rgb(180 83 9 / 16%),
+    var(--session-pill-selected-shadow-hover);
+}
+
+a.inv-session-pill.inv-session-pill--btn.inv-session-pill--selected:not(.inv-session-pill--open):not(.inv-session-pill--closed):not(
+    .inv-session-pill--after
+  ):not(.inv-session-pill--pre) {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    var(--session-pill-selected-shadow);
+}
+
+a.inv-session-pill.inv-session-pill--btn.inv-session-pill--selected:not(.inv-session-pill--open):not(.inv-session-pill--closed):not(
+    .inv-session-pill--after
+  ):not(.inv-session-pill--pre):hover {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    var(--session-pill-selected-shadow-hover);
+}
+
 .inv-session-pill-label {
   font-size: 10px;
   font-weight: 800;
@@ -648,6 +737,10 @@ a.inv-session-pill.inv-session-pill--btn:focus-visible {
   color: var(--session-open-strong);
 }
 
+.inv-session-pill--open .inv-session-pill-label {
+  color: var(--session-open-label);
+}
+
 .inv-session-pill--pre {
   border-color: var(--session-pre-border);
   background: var(--session-pre-bg);
@@ -657,14 +750,74 @@ a.inv-session-pill.inv-session-pill--btn:focus-visible {
   color: var(--session-pre-strong);
 }
 
+.inv-session-pill--pre .inv-session-pill-label {
+  color: var(--session-pre-label);
+}
+
 .inv-session-pill--closed,
 .inv-session-pill--after {
-  opacity: 0.92;
+  opacity: 1;
+  border-color: var(--session-closed-border);
+  background: var(--session-closed-bg);
+}
+
+.inv-session-pill--closed .inv-session-pill-label,
+.inv-session-pill--after .inv-session-pill-label {
+  color: var(--session-closed-label);
 }
 
 .inv-session-pill--closed strong,
 .inv-session-pill--after strong {
-  color: var(--text-muted);
+  color: var(--session-closed-strong);
+}
+
+a.inv-session-pill.inv-session-pill--closed.inv-session-pill--btn:hover,
+a.inv-session-pill.inv-session-pill--after.inv-session-pill--btn:hover {
+  border-color: var(--session-closed-strong);
+}
+
+/* US — Closed/After (KR Open과 짝을 이루는 블루 톤) */
+.inv-session-pill--us.inv-session-pill--closed,
+.inv-session-pill--us.inv-session-pill--after {
+  border-color: var(--session-us-closed-border);
+  background: var(--session-us-closed-bg);
+}
+
+.inv-session-pill--us.inv-session-pill--closed .inv-session-pill-label,
+.inv-session-pill--us.inv-session-pill--after .inv-session-pill-label {
+  color: var(--session-us-closed-label);
+}
+
+.inv-session-pill--us.inv-session-pill--closed strong,
+.inv-session-pill--us.inv-session-pill--after strong {
+  color: var(--session-us-closed-strong);
+}
+
+a.inv-session-pill.inv-session-pill--us.inv-session-pill--closed.inv-session-pill--btn:hover,
+a.inv-session-pill.inv-session-pill--us.inv-session-pill--after.inv-session-pill--btn:hover {
+  border-color: var(--session-us-closed-strong);
+}
+
+a.inv-session-pill.inv-session-pill--us.inv-session-pill--closed.inv-session-pill--btn.inv-session-pill--selected,
+a.inv-session-pill.inv-session-pill--us.inv-session-pill--after.inv-session-pill--btn.inv-session-pill--selected {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    inset 0 0 0 1px var(--session-selected-us-closed-inset),
+    var(--session-pill-selected-shadow);
+}
+
+a.inv-session-pill.inv-session-pill--us.inv-session-pill--closed.inv-session-pill--btn.inv-session-pill--selected:hover,
+a.inv-session-pill.inv-session-pill--us.inv-session-pill--after.inv-session-pill--btn.inv-session-pill--selected:hover {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    inset 0 0 0 1px var(--session-selected-us-closed-inset),
+    var(--session-pill-selected-shadow-hover);
+}
+
+/* KR — Open 강조 (US Closed와 대비) */
+.inv-session-pill--kr.inv-session-pill--open {
+  border-color: var(--session-open-border);
+  background: var(--session-open-bg);
 }
 
 .inv-session-pill--pending {
@@ -692,10 +845,18 @@ a.inv-session-pill.inv-session-pill--btn:focus-visible {
   color: var(--text-secondary);
   background: transparent;
   border-radius: 999px;
+  cursor: pointer;
+  pointer-events: auto;
+  text-decoration: none;
   transition: background 0.15s, color 0.15s;
 }
 
 .inv-quick-links a:hover {
+  color: var(--primary);
+  background: var(--surface);
+}
+
+.inv-quick-links a.is-active {
   color: var(--primary);
   background: var(--surface);
 }
@@ -720,6 +881,7 @@ a.inv-session-pill.inv-session-pill--btn:focus-visible {
   display: grid;
   gap: var(--space-4);
   min-width: 0;
+  padding-bottom: calc(var(--space-6) + 56px);
 }
 
 .inv-widget {
@@ -1677,6 +1839,23 @@ a.inv-session-pill.inv-session-pill--btn:focus-visible {
   display: none;
 }
 
+@media (max-width: 767px) {
+  .inv-market-subnav {
+    position: relative;
+  }
+
+  .inv-market-subnav::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 24px;
+    background: linear-gradient(90deg, transparent, var(--surface));
+    pointer-events: none;
+  }
+}
+
 .inv-market-subnav-inner > a {
   flex: 0 0 auto;
   padding: 10px 14px;
@@ -2053,7 +2232,7 @@ a.inv-session-pill.inv-session-pill--btn:focus-visible {
   list-style: none;
 }
 
-.inv-sidebar-index-row {
+.inv-sidebar-index-row:not(.inv-sidebar-index-row--btn) {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2063,7 +2242,7 @@ a.inv-session-pill.inv-session-pill--btn:focus-visible {
   font-size: 12px;
 }
 
-.inv-sidebar-index-row:last-child {
+.inv-sidebar-index-row:not(.inv-sidebar-index-row--btn):last-child {
   border-bottom: 0;
 }
 

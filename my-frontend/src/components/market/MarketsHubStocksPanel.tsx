@@ -2,13 +2,12 @@
 
 import { useMemo } from "react";
 import EquitiesTable from "@/components/market/EquitiesTable";
-import IntlStocksTable from "@/components/market/IntlStocksTable";
-import LoadingState from "@/components/common/LoadingState";
-import { koreaToEquity, usToEquity } from "@/lib/equityQuotes";
-import {
-  HUB_STOCK_SECTION_TITLES,
-  type HubStockRegion,
-} from "@/lib/regionalMarkets";
+import MarketsHubStocksJumpNav, {
+  hubStockSectionId,
+  hubStockSectionTitle,
+} from "@/components/market/MarketsHubStocksJumpNav";
+import { intlToEquity, koreaToEquity, usToEquity } from "@/lib/equityQuotes";
+import type { HubStockRegion } from "@/lib/regionalMarkets";
 import type { IntlStock, KoreaStock, USStock } from "@/types/stock";
 import type { LiveStockTick } from "@/lib/wsNormalize";
 
@@ -37,16 +36,17 @@ export default function MarketsHubStocksPanel({
 }: MarketsHubStocksPanelProps) {
   const koreaRows = useMemo(() => koreaStocks.map(koreaToEquity), [koreaStocks]);
   const usRows = useMemo(() => usStocks.map(usToEquity), [usStocks]);
+  const asiaRows = useMemo(() => asiaStocks.map(intlToEquity), [asiaStocks]);
+  const europeRows = useMemo(() => europeStocks.map(intlToEquity), [europeStocks]);
 
-  if (isLoading && !koreaRows.length && !usRows.length && !asiaStocks.length && !europeStocks.length) {
-    return <LoadingState rows={6} />;
-  }
+  const HUB_PREVIEW_LIMIT = 55;
 
   return (
     <>
+      <MarketsHubStocksJumpNav regions={regions} />
       {regions.includes("korea") && (
-        <section className="inv-hub-table-section">
-          <h3 className="inv-hub-section-title">{HUB_STOCK_SECTION_TITLES.korea}</h3>
+        <section id={hubStockSectionId("korea")} className="inv-hub-table-section inv-hub-stock-section">
+          <h3 className="inv-hub-section-title">{hubStockSectionTitle("korea")}</h3>
           <EquitiesTable
             rows={koreaRows}
             market="korea"
@@ -55,14 +55,16 @@ export default function MarketsHubStocksPanel({
             liveQuotes={liveQuotes}
             liveTicks={liveTicks}
             liveStream={liveStream}
+            previewLimit={HUB_PREVIEW_LIMIT}
+            persistSortPrefs
             footerHref="/korea"
             footerLabel="한국 종목 보드로 이동"
           />
         </section>
       )}
       {regions.includes("us") && (
-        <section className="inv-hub-table-section">
-          <h3 className="inv-hub-section-title">{HUB_STOCK_SECTION_TITLES.us}</h3>
+        <section id={hubStockSectionId("us")} className="inv-hub-table-section inv-hub-stock-section">
+          <h3 className="inv-hub-section-title">{hubStockSectionTitle("us")}</h3>
           <EquitiesTable
             rows={usRows}
             market="us"
@@ -71,26 +73,44 @@ export default function MarketsHubStocksPanel({
             liveQuotes={liveQuotes}
             liveTicks={liveTicks}
             liveStream={liveStream}
+            previewLimit={HUB_PREVIEW_LIMIT}
+            persistSortPrefs
             footerHref="/us"
             footerLabel="미국 종목 보드로 이동"
           />
         </section>
       )}
       {regions.includes("asia") && (
-        <IntlStocksTable
-          title={HUB_STOCK_SECTION_TITLES.asia}
-          stocks={asiaStocks}
-          liveQuotes={liveQuotes}
-          liveTicks={liveTicks}
-        />
+        <section id={hubStockSectionId("asia")} className="inv-hub-table-section inv-hub-stock-section">
+          <h3 className="inv-hub-section-title">{hubStockSectionTitle("asia")}</h3>
+          <EquitiesTable
+            rows={asiaRows}
+            market="asia"
+            investingExact
+            isLoading={isLoading && asiaRows.length === 0}
+            liveQuotes={liveQuotes}
+            liveTicks={liveTicks}
+            liveStream={liveStream}
+            previewLimit={HUB_PREVIEW_LIMIT}
+            persistSortPrefs
+          />
+        </section>
       )}
       {regions.includes("europe") && (
-        <IntlStocksTable
-          title={HUB_STOCK_SECTION_TITLES.europe}
-          stocks={europeStocks}
-          liveQuotes={liveQuotes}
-          liveTicks={liveTicks}
-        />
+        <section id={hubStockSectionId("europe")} className="inv-hub-table-section inv-hub-stock-section">
+          <h3 className="inv-hub-section-title">{hubStockSectionTitle("europe")}</h3>
+          <EquitiesTable
+            rows={europeRows}
+            market="europe"
+            investingExact
+            isLoading={isLoading && europeRows.length === 0}
+            liveQuotes={liveQuotes}
+            liveTicks={liveTicks}
+            liveStream={liveStream}
+            previewLimit={HUB_PREVIEW_LIMIT}
+            persistSortPrefs
+          />
+        </section>
       )}
     </>
   );

@@ -8,6 +8,7 @@ import {
 } from "@/services/integrationsApi";
 import LoadingState from "@/components/common/LoadingState";
 import ErrorState from "@/components/common/ErrorState";
+import FcmTestBlock from "@/components/tools/FcmTestBlock";
 
 function IntegrationCard({
   item,
@@ -177,6 +178,7 @@ export default function IntegrationsPanel() {
           />
         ))}
         <SmsTestBlock active={(data?.integrations ?? []).some((i) => i.id === "sms_auth" && i.active)} />
+        <FcmTestBlock active={(data?.integrations ?? []).some((i) => i.id === "fcm_push" && i.active)} />
       </div>
 
       <div className="flex flex-wrap gap-3">

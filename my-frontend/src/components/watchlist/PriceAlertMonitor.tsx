@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMarketWebSocket } from "@/hooks/useMarketWebSocket";
+import { pickWsQuote } from "@/lib/wsSymbolKey";
 import {
   isAlertTriggered,
   markAlertTriggered,
@@ -63,7 +64,7 @@ export default function PriceAlertMonitor() {
   useEffect(() => {
     for (const alert of active) {
       if (firingRef.current.has(alert.id)) continue;
-      const price = quotes[alert.symbol];
+      const price = pickWsQuote(alert.symbol, quotes);
       if (price == null) continue;
       if (isAlertTriggered(alert, price)) {
         firingRef.current.add(alert.id);

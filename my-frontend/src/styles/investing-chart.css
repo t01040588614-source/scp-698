@@ -181,12 +181,49 @@
   box-sizing: border-box;
 }
 
+.inv-investing-chart-canvas-wrap {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.inv-investing-chart-canvas-wrap--ordinal-month {
+  padding-bottom: 2px;
+}
+
 .inv-investing-chart-canvas {
   width: 100%;
   min-width: 0;
   flex-shrink: 0;
   overflow: hidden;
   box-sizing: border-box;
+}
+
+.inv-chart-ordinal-month-axis {
+  position: relative;
+  width: 100%;
+  height: 16px;
+  margin-top: -2px;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.inv-chart-ordinal-month-axis__tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 9px;
+  line-height: 16px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 480px) {
+  .inv-chart-ordinal-month-axis__tick {
+    font-size: 7px;
+  }
 }
 
 .inv-investing-chart--compact .inv-investing-chart-stage,
@@ -235,17 +272,67 @@
   margin-top: 28px;
 }
 
-.inv-investing-chart-ohlc {
+.inv-investing-chart--compact .inv-investing-chart-toolbar {
+  padding: 4px 6px;
+  gap: 4px;
+}
+
+.inv-investing-chart--compact .inv-investing-chart-intervals {
+  flex: 1 1 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.inv-investing-chart--compact .inv-investing-chart-interval {
+  padding: 3px 6px;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.inv-sidebar-indices .inv-investing-chart--compact .inv-chart-intraday {
+  flex: 1 1 100%;
+  justify-content: flex-start;
+}
+
+.inv-stream-legend {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.inv-investing-chart-ohlc,
+.inv-stream-legend-ohlc {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 8px 12px;
 }
 
-.inv-investing-chart-ohlc em {
+.inv-ohlc-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.inv-ohlc-label {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.inv-investing-chart-ohlc em,
+.inv-stream-legend-ohlc em {
   font-style: normal;
   font-weight: 700;
-  color: var(--market-up);
   font-variant-numeric: tabular-nums;
+}
+
+.inv-ohlc--up {
+  color: var(--market-up);
+}
+
+.inv-ohlc--down {
+  color: var(--market-down);
 }
 
 .inv-investing-chart--equity-hub .inv-investing-chart-canvas,
@@ -372,6 +459,14 @@
 .inv-investing-chart--compact .inv-investing-chart-watermark {
   font-size: 16px;
   bottom: 22px;
+}
+
+.inv-sidebar-indices--live .inv-investing-chart-watermark {
+  display: none;
+}
+
+.inv-sidebar-indices--live .inv-investing-chart--compact .inv-investing-chart-canvas {
+  margin-top: 24px;
 }
 
 .inv-sidebar-indices--live .inv-investing-chart {

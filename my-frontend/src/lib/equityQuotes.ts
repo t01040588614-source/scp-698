@@ -1,7 +1,9 @@
-import type { KoreaStock, USStock } from "@/types/stock";
+import type { IntlStock, KoreaStock, USStock } from "@/types/stock";
 import { mergeLiveStockQuote } from "@/lib/liveQuoteMerge";
 import { normalizeStockQuoteFields } from "@/lib/stockQuoteFields";
+import { formatPrice } from "@/lib/format";
 import type { LiveStockTick } from "@/lib/wsNormalize";
+import { pickWsQuote, pickWsTick } from "@/lib/wsSymbolKey";
 
 export function quoteMarketFromEquity(row: EquityQuote): "korea" | "us" {
   return row.currency === "KRW" ? "korea" : "us";
@@ -19,7 +21,7 @@ export type EquityQuote = {
   low: number;
   open: number;
   volume: number;
-  currency: "KRW" | "USD";
+  currency: string;
   marketCap?: number;
   peRatio?: number;
   eps?: number;
@@ -34,7 +36,8 @@ export type EquityFilter =
   | "nyse"
   | "gainers"
   | "losers"
-  | "volume";
+  | "volume"
+  | "watchlist";
 
 export function koreaToEquity(stock: KoreaStock): EquityQuote {
   const n = normalizeStockQuoteFields(stock);
@@ -57,6 +60,53 @@ export function koreaToEquity(stock: KoreaStock): EquityQuote {
     eps: stock.eps,
     sector: stock.sector,
   };
+}
+
+export function intlToEquity(stock: IntlStock): EquityQuote {
+  const n = normalizeStockQuoteFields(stock);
+  const previousClose = n.previousClose > 0 ? n.previousClose : n.price - n.change;
+  return {
+    symbol: stock.symbol,
+    name: stock.name,
+    market: stock.exchange,
+    price: n.price,
+    change: n.change,
+    changePercent: n.changePercent,
+    previousClose,
+    high: stock.high,
+    low: stock.low,
+    open: stock.open,
+    volume: stock.volume,
+    currency: stock.currency,
+    marketCap: stock.marketCap,
+    peRatio: stock.peRatio,
+    eps: stock.eps,
+    sector: stock.sector,
+  };
+}
+
+export function equityPriceDecimals(currency: string): number {
+  if (currency === "KRW" || currency === "JPY") return 0;
+  return 2;
+}
+
+function formatIntlMoneyAmount(value: number, currency: string): string {
+  const sym =
+    currency === "USD"
+      ? "$"
+      : currency === "JPY"
+        ? "¥"
+        : currency === "EUR"
+          ? "€"
+          : currency === "GBP"
+            ? "£"
+            : currency === "HKD"
+              ? "HK$"
+              : "";
+  if (value >= 1_000_000_000_000) return `${sym}${(value / 1_000_000_000_000).toFixed(2)}T`;
+  if (value >= 1_000_000_000) return `${sym}${(value / 1_000_000_000).toFixed(1)}B`;
+  if (value >= 1_000_000) return `${sym}${(value / 1_000_000).toFixed(1)}M`;
+  return sym ? `${sym}${Math.round(value).toLocaleString("en-US")}` : `${Math.round(value).toLocaleString("ko-KR")} ${currency}`;
 }
 
 export function usToEquity(stock: USStock): EquityQuote {
@@ -123,7 +173,7 @@ export function defaultEquityMetrics(row: EquityQuote): EquitySortMetrics {
 }
 
 /** 토스 스타일 거래대금·시총 표기 (참고용) */
-export function formatEquityTurnover(value: number, currency: "KRW" | "USD"): string {
+export function formatEquityTurnover(value: number, currency: string): string {
   if (!value || value <= 0) return "—";
   if (currency === "KRW") {
     if (value >= 1_000_000_000_000) {
@@ -138,13 +188,16 @@ export function formatEquityTurnover(value: number, currency: "KRW" | "USD"): st
     if (value >= 10_000) return `${Math.round(value / 10_000).toLocaleString("ko-KR")}만원`;
     return `${Math.round(value).toLocaleString("ko-KR")}원`;
   }
-  if (value >= 1_000_000_000_000) return `$${(value / 1_000_000_000_000).toFixed(2)}T`;
-  if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-  return `$${Math.round(value).toLocaleString("en-US")}`;
+  if (currency === "USD") {
+    if (value >= 1_000_000_000_000) return `$${(value / 1_000_000_000_000).toFixed(2)}T`;
+    if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
+    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+    return `$${Math.round(value).toLocaleString("en-US")}`;
+  }
+  return formatIntlMoneyAmount(value, currency);
 }
 
-export function formatEquityMarketCap(value: number | undefined, currency: "KRW" | "USD"): string {
+export function formatEquityMarketCap(value: number | undefined, currency: string): string {
   if (!value || value <= 0) return "—";
   if (currency === "KRW") {
     if (value >= 1_000_000_000_000) {
@@ -157,10 +210,26 @@ export function formatEquityMarketCap(value: number | undefined, currency: "KRW"
     if (eok >= 10) return `${Math.round(eok).toLocaleString("ko-KR")}억원`;
     return `${eok.toFixed(1)}억원`;
   }
-  if (value >= 1_000_000_000_000) return `$${(value / 1_000_000_000_000).toFixed(2)}T`;
-  if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-  return `$${Math.round(value).toLocaleString("en-US")}`;
+  if (currency === "USD") {
+    if (value >= 1_000_000_000_000) return `$${(value / 1_000_000_000_000).toFixed(2)}T`;
+    if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
+    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+    return `$${Math.round(value).toLocaleString("en-US")}`;
+  }
+  return formatIntlMoneyAmount(value, currency);
+}
+
+export function formatEquityPriceWithUnit(price: number, currency: string, decimals: number): string {
+  const formatted = formatPrice(price, decimals);
+  if (formatted === "-") return "—";
+  if (currency === "KRW") return `${formatted}원`;
+  if (currency === "USD") return `$${formatted}`;
+  if (currency === "JPY") return `¥${formatted}`;
+  if (currency === "EUR") return `€${formatted}`;
+  if (currency === "GBP") return `£${formatted}`;
+  if (currency === "HKD") return `HK$${formatted}`;
+  if (currency === "CNY") return `¥${formatted}`;
+  return `${formatted} ${currency}`;
 }
 
 /** 종목별 안정적인 매수·매도 비율 (데모 UI) */
@@ -176,7 +245,7 @@ export function tossStyleTradeRatio(symbol: string): { buyPct: number; sellPct: 
 export function equityAiSummary(changePercent: number, sector?: string): string {
   const tag = sector?.trim();
   if (Math.abs(changePercent) >= 15) {
-    return changePercent > 0 ? "급등 · 단기 변동성 주의" : "급락 · 수급 부담";
+    return changePercent > 0 ? "급등·변동성 주의" : "급락·수급 부담";
   }
   if (changePercent >= 5) return tag ? `${tag} 모멘텀 강화` : "수급 우위 · 상승세";
   if (changePercent <= -5) return tag ? `${tag} 약세 지속` : "매도 우위 · 하락 압력";
@@ -270,6 +339,18 @@ export function sortEquities(
   });
 }
 
+/** WS maps에서 심볼 키(한국 6자리 등) 정규화 후 livePrice·tick 조회 */
+export function wsLiveInputsForSymbol(
+  symbol: string,
+  quotes: Record<string, number>,
+  ticks: Record<string, LiveStockTick>
+): { livePrice?: number; tick?: LiveStockTick } {
+  return {
+    livePrice: pickWsQuote(symbol, quotes),
+    tick: pickWsTick(symbol, ticks),
+  };
+}
+
 /** REST + WebSocket 시세를 전일종가 기준으로 통일 */
 export function resolveLiveEquityQuote(
   row: EquityQuote,
@@ -294,4 +375,14 @@ export function resolveLiveEquityQuote(
     volume: merged.volume,
     turnover: merged.price * merged.volume,
   };
+}
+
+/** 표·허브 — quotes/ticks map에서 종목별 실시간 병합 (키 불일치 예외 처리) */
+export function resolveLiveEquityQuoteFromMaps(
+  row: EquityQuote,
+  quotes: Record<string, number>,
+  ticks: Record<string, LiveStockTick>
+) {
+  const { livePrice, tick } = wsLiveInputsForSymbol(row.symbol, quotes, ticks);
+  return resolveLiveEquityQuote(row, livePrice, tick);
 }

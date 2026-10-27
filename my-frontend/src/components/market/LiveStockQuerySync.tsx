@@ -7,6 +7,9 @@ import type { IntlStock, KoreaStock, USStock } from "@/types/stock";
 import { mergeLiveStockQuote } from "@/lib/liveQuoteMerge";
 import { normalizeStockQuoteFields } from "@/lib/stockQuoteFields";
 import type { LiveStockTick } from "@/lib/wsNormalize";
+import { pickWsQuote, pickWsTick } from "@/lib/wsSymbolKey";
+
+const THROTTLE_MS = 120;
 
 function patchStockList<T extends { symbol: string; price: number }>(
   list: T[] | undefined,
@@ -16,8 +19,8 @@ function patchStockList<T extends { symbol: string; price: number }>(
   if (!list?.length) return list;
   let changed = false;
   const next = list.map((item) => {
-    const tick = ticks[item.symbol];
-    const quote = quotes[item.symbol];
+    const tick = pickWsTick(item.symbol, ticks);
+    const quote = pickWsQuote(item.symbol, quotes);
     if (!tick && quote === undefined) return item;
     const merged = mergeLiveStockQuote(
       {
@@ -30,10 +33,14 @@ function patchStockList<T extends { symbol: string; price: number }>(
       quote,
       tick
     );
+    const prevVol = (item as { volume?: number }).volume ?? 0;
+    const prevChange = (item as { change?: number }).change;
     if (
       item.price === merged.price &&
       "changePercent" in item &&
-      (item as { changePercent?: number }).changePercent === merged.changePercent
+      (item as { changePercent?: number }).changePercent === merged.changePercent &&
+      (prevChange === undefined || prevChange === merged.change) &&
+      prevVol === merged.volume
     ) {
       return item;
     }
@@ -54,25 +61,67 @@ export default function LiveStockQuerySync() {
   const ctx = useMarketWebSocketContext();
   const queryClient = useQueryClient();
   const lastAt = useRef(0);
+  const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestRef = useRef<{
+    ticks: Record<string, LiveStockTick>;
+    quotes: Record<string, number>;
+  }>({ ticks: {}, quotes: {} });
+
+  useEffect(() => {
+    if (!ctx?.isConnected) return;
+    const ticks = ctx.ticks ?? {};
+    const quotes = ctx.quotes ?? {};
+    if (Object.keys(ticks).length === 0 && Object.keys(quotes).length === 0) return;
+    latestRef.current = { ticks, quotes };
+    const flush = () => {
+      pendingTimer.current = null;
+      lastAt.current = Date.now();
+      const { ticks: t, quotes: q } = latestRef.current;
+      queryClient.setQueryData<KoreaStock[]>(["koreaStocks"], (old) => patchStockList(old, t, q));
+      queryClient.setQueryData<USStock[]>(["usStocks"], (old) => patchStockList(old, t, q));
+      queryClient.setQueryData<IntlStock[]>(["asiaStocks"], (old) => patchStockList(old, t, q));
+      queryClient.setQueryData<IntlStock[]>(["europeStocks"], (old) => patchStockList(old, t, q));
+    };
+    flush();
+  }, [ctx?.isConnected, queryClient]);
 
   useEffect(() => {
     const ticks = ctx?.ticks ?? {};
     const quotes = ctx?.quotes ?? {};
+    latestRef.current = { ticks, quotes };
     if (Object.keys(ticks).length === 0 && Object.keys(quotes).length === 0) return;
 
-    const now = Date.now();
-    if (now - lastAt.current < 80) return;
-    lastAt.current = now;
+    const flush = () => {
+      pendingTimer.current = null;
+      lastAt.current = Date.now();
+      const { ticks: t, quotes: q } = latestRef.current;
+      queryClient.setQueryData<KoreaStock[]>(["koreaStocks"], (old) => patchStockList(old, t, q));
+      queryClient.setQueryData<USStock[]>(["usStocks"], (old) => patchStockList(old, t, q));
+      queryClient.setQueryData<IntlStock[]>(["asiaStocks"], (old) => patchStockList(old, t, q));
+      queryClient.setQueryData<IntlStock[]>(["europeStocks"], (old) => patchStockList(old, t, q));
+    };
 
-    queryClient.setQueryData<KoreaStock[]>(["koreaStocks"], (old) =>
-      patchStockList(old, ticks, quotes)
-    );
-    queryClient.setQueryData<USStock[]>(["usStocks"], (old) => patchStockList(old, ticks, quotes));
-    queryClient.setQueryData<IntlStock[]>(["asiaStocks"], (old) => patchStockList(old, ticks, quotes));
-    queryClient.setQueryData<IntlStock[]>(["europeStocks"], (old) =>
-      patchStockList(old, ticks, quotes)
-    );
+    const now = Date.now();
+    const elapsed = now - lastAt.current;
+    if (elapsed >= THROTTLE_MS) {
+      if (pendingTimer.current) {
+        clearTimeout(pendingTimer.current);
+        pendingTimer.current = null;
+      }
+      flush();
+      return;
+    }
+
+    if (!pendingTimer.current) {
+      pendingTimer.current = setTimeout(flush, THROTTLE_MS - elapsed);
+    }
   }, [ctx?.quotes, ctx?.ticks, queryClient]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingTimer.current) clearTimeout(pendingTimer.current);
+    };
+  }, []);
 
   return null;
 }

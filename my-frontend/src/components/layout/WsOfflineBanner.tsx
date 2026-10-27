@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import SystemStatusLink from "@/components/navigation/SystemStatusLink";
 import { useMarketWebSocketContext } from "@/context/MarketWebSocketProvider";
 
 /** WS 끊김 시 상단 안내 (자동 재연결) */
@@ -28,7 +28,7 @@ export default function WsOfflineBanner() {
           WebSocket 연결이 끊겼습니다. 시세는 REST 폴링으로 표시됩니다. 백엔드(포트 8000) 실행
           후 자동 재연결됩니다.
         </span>
-        <Link href="/tools#system-status">연결 상태</Link>
+        <SystemStatusLink>연결 상태</SystemStatusLink>
       </div>
     </div>
   );

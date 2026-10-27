@@ -17,7 +17,7 @@ export default function WatchlistPage() {
         { label: "관심목록" },
       ]}
       title="관심목록"
-      description="★로 저장한 로컬 관심종목과 로그인 계정 포트폴리오를 관리합니다."
+      description="로그인 후 ★로 저장한 관심종목과 계정 포트폴리오를 관리합니다."
       sidebar={{ showRankings: true, showCalendar: true, showNews: false }}
     >
       <div className="panel-header" style={{ marginBottom: "var(--space-3)" }}>

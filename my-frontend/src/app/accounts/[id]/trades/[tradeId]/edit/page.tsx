@@ -58,11 +58,11 @@ export default function EditTradePage() {
   return (
     <InvestingPageLayout
       breadcrumbs={[
-        { label: "포트폴리오", href: "/portfolio#docx-accounts" },
+        { label: "포트폴리오", href: "/portfolio#accounts" },
         { label: "매매 수정" },
       ]}
       title="매매 내역 수정"
-      description="PATCH/DELETE — 수정 후 포지션 자동 재계산 (DOCX)"
+      description="매매 내역 수정 · 수정 후 포지션이 자동 재계산됩니다."
       sidebar={false}
     >
       <form className="inv-screener-grid" onSubmit={onSubmit}>

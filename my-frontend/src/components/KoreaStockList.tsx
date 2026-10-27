@@ -2,6 +2,7 @@
 
 import type { KoreaStock } from '@/types/stock';
 import StockCompanyLogo from '@/components/market/StockCompanyLogo';
+import { wsLiveInputsForSymbol } from '@/lib/equityQuotes';
 import { mergeLiveStockQuote } from '@/lib/liveQuoteMerge';
 import type { LiveStockTick } from '@/lib/wsNormalize';
 import { TrendingUp, TrendingDown } from 'lucide-react';
@@ -42,6 +43,7 @@ export default function KoreaStockList({ stocks, isLoading, liveQuotes = {}, liv
         </thead>
         <tbody>
           {stocks.map((stock) => {
+            const { livePrice, tick } = wsLiveInputsForSymbol(stock.symbol, liveQuotes, liveTicks);
             const merged = mergeLiveStockQuote(
               {
                 price: stock.price,
@@ -50,8 +52,8 @@ export default function KoreaStockList({ stocks, isLoading, liveQuotes = {}, liv
                 previousClose: stock.previousClose,
                 volume: stock.volume,
               },
-              liveQuotes[stock.symbol],
-              liveTicks[stock.symbol]
+              livePrice,
+              tick
             );
             const price = merged.price;
             const isPositive = merged.change >= 0;

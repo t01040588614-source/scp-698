@@ -3,16 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -H 127.0.0.1",
+    "dev": "next dev -H 127.0.0.1 -p 3000",
     "build": "next build",
     "start": "next start -H 127.0.0.1 -p 3000",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run lint && npm run typecheck",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
+    "test:e2e:mobile-checklist": "playwright test e2e/mobile-viewport-checklist.spec.ts"
   },
   "dependencies": {
     "@formkit/auto-animate": "^0.10.0",
     "@tanstack/react-query": "^5.52.0",
     "axios": "^1.7.4",
     "date-fns": "^3.6.0",
+    "firebase": "^10.14.1",
     "lightweight-charts": "^4.2.0",
     "lucide-react": "^0.428.0",
     "next": "14.2.35",
@@ -21,6 +27,7 @@
     "recharts": "^2.12.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

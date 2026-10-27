@@ -1,22 +1,40 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import InvestingPageLayout from "@/components/layout/InvestingPageLayout";
+import LoadingState from "@/components/common/LoadingState";
 import { accountsApi } from "@/services/accountsApi";
+import RememberPreferredTradeAccount from "@/components/accounts/RememberPreferredTradeAccount";
 
-export default function NewTradePage() {
+function NewTradeForm() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const accountId = Number(params.id);
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
   const [stockCode, setStockCode] = useState("005930");
   const [stockName, setStockName] = useState("삼성전자");
-  const [tradeDate, setTradeDate] = useState(new Date().toISOString().slice(0, 10));
+  const [tradeDate, setTradeDate] = useState("");
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("");
   const [memo, setMemo] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setTradeDate(new Date().toISOString().slice(0, 10));
+  }, []);
+
+  useEffect(() => {
+    const sideParam = searchParams.get("side");
+    if (sideParam === "BUY" || sideParam === "SELL") setSide(sideParam);
+    const code = searchParams.get("stockCode");
+    if (code) setStockCode(code);
+    const name = searchParams.get("stockName");
+    if (name) setStockName(name);
+    const priceParam = searchParams.get("price");
+    if (priceParam) setPrice(priceParam);
+  }, [searchParams]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,13 +58,14 @@ export default function NewTradePage() {
   return (
     <InvestingPageLayout
       breadcrumbs={[
-        { label: "포트폴리오", href: "/portfolio#docx-accounts" },
+        { label: "포트폴리오", href: "/portfolio#accounts" },
         { label: "매매 추가" },
       ]}
       title="매매 내역 추가"
       description=""
       sidebar={false}
     >
+      <RememberPreferredTradeAccount accountId={accountId} />
       <form className="inv-screener-grid" onSubmit={onSubmit}>
         <label>
           종목코드
@@ -85,5 +104,13 @@ export default function NewTradePage() {
         </button>
       </form>
     </InvestingPageLayout>
+  );
+}
+
+export default function NewTradePage() {
+  return (
+    <Suspense fallback={<LoadingState rows={4} />}>
+      <NewTradeForm />
+    </Suspense>
   );
 }

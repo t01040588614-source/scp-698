@@ -6,6 +6,7 @@ import { useMarketWebSocketContext } from "@/context/MarketWebSocketProvider";
 import LiveStreamBadge from "@/components/common/LiveStreamBadge";
 import LoadingState from "@/components/common/LoadingState";
 import ErrorState from "@/components/common/ErrorState";
+import { invalidateMarketQueries } from "@/lib/invalidateMarketQueries";
 
 function formatAge(sec: number | null | undefined) {
   if (sec == null || !Number.isFinite(sec)) return "—";
@@ -46,9 +47,7 @@ export default function SystemStatusPanel() {
   const refresh = useMutation({
     mutationFn: () => stockApi.refreshMarketCache().then((r) => r.data),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["marketCacheStatus"] });
-      void qc.invalidateQueries({ queryKey: ["koreaStocks"] });
-      void qc.invalidateQueries({ queryKey: ["usStocks"] });
+      invalidateMarketQueries(qc);
     },
   });
 
@@ -57,7 +56,7 @@ export default function SystemStatusPanel() {
     return (
       <ErrorState
         title="백엔드에 연결할 수 없습니다"
-        message="stock-backend(8000)와 my-frontend(3000)가 실행 중인지 확인하세요. 프로젝트 루트의 주식대시보드_실행.bat을 사용할 수 있습니다."
+        message="stock-backend(8000)와 my-frontend(3000)가 실행 중인지 확인하세요. 프로젝트 루트의 주식대시보드_통합.bat(메뉴 1)을 사용할 수 있습니다."
         onRetry={() => {
           void health.refetch();
           void cache.refetch();
@@ -102,7 +101,7 @@ export default function SystemStatusPanel() {
             {ws?.isConnected
               ? c?.wsBroadcastAlive === false
                 ? "연결됨 · 서버 푸시 중단 (페이지 새로고침 또는 백엔드 재시작)"
-                : "연결됨 · 약 1초 푸시"
+                : "연결됨 · 장중 약 0.35초 푸시 (WS=현재가)"
               : "끊김 · REST 폴링"}
           </dd>
         </div>
@@ -141,13 +140,54 @@ export default function SystemStatusPanel() {
           </dd>
         </div>
         <div>
+          <dt>갱신 모드</dt>
+          <dd className={c?.yahooThrottled ? "is-warn" : "is-ok"}>
+            {c?.yahooThrottled || c?.refreshMode === "yahoo_throttled"
+              ? "Yahoo 제한 — 자동 완화 (fast≥2초)"
+              : "정상"}
+          </dd>
+        </div>
+        <div>
           <dt>마지막 갱신</dt>
           <dd className={stale ? "is-warn" : undefined}>
             {formatAge(c?.cacheAgeSeconds)}
             {stale ? " · 지연 — 새로고침 권장" : ""}
           </dd>
         </div>
+        <div>
+          <dt>실시간 정의</dt>
+          <dd title={c?.realtimeDisclaimer ?? undefined}>
+            {c?.realtimeMode === "quasi_realtime_cache_ws" ? "준실시간(캐시·WS)" : "캐시 기반"}
+          </dd>
+        </div>
+        <div>
+          <dt>KIS 시세</dt>
+          <dd>
+            {c?.kisConfigured
+              ? `연동 · 마지막 ${c.kisLastFetchMs != null ? `${c.kisLastFetchMs}ms` : "—"}`
+              : "미설정"}
+          </dd>
+        </div>
+        <div>
+          <dt>KIS 실시간 WS</dt>
+          <dd className={c?.kisRealtime?.connected ? "is-ok" : undefined}>
+            {c?.kisRealtime?.connected
+              ? `체결 틱 · ${c.kisRealtime.tickCount ?? 0}건 · live ${c.kisRealtime.liveCount ?? 0}`
+              : c?.kisConfigured
+                ? "대기(장중·구독 종목)"
+                : "KIS 키 필요"}
+          </dd>
+        </div>
+        <div>
+          <dt>Redis</dt>
+          <dd className={c?.redis?.enabled ? "is-ok" : undefined}>
+            {c?.redis?.enabled ? "연결됨 (rate limit 등)" : "메모리 폴백"}
+          </dd>
+        </div>
       </dl>
+      {c?.realtimeDisclaimer ? (
+        <p className="system-status-note">{c.realtimeDisclaimer}</p>
+      ) : null}
       {c?.message ? <p className="system-status-note">{c.message}</p> : null}
       {c?.lastError ? (
         <p className="system-status-error">최근 오류: {formatLastError(c.lastError)}</p>

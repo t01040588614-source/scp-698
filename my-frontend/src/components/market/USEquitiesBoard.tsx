@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { stockApi } from "@/lib/api";
 import { useMarketWebSocketContext } from "@/context/MarketWebSocketProvider";
 import { useMarketWebSocket } from "@/hooks/useMarketWebSocket";
@@ -12,14 +12,14 @@ import {
 } from "@/lib/marketRefreshIntervals";
 import { ALL_WS_INDEX_IDS } from "@/lib/indexCatalog";
 import { buildBoardIndexStripItems } from "@/lib/marketFromStocks";
-import { resolveLiveEquityQuote, usToEquity } from "@/lib/equityQuotes";
+import { resolveLiveEquityQuoteFromMaps, usToEquity } from "@/lib/equityQuotes";
 import { getMarketIndicesForBoard } from "@/services/marketApi";
 import IndexQuoteStrip from "./IndexQuoteStrip";
 import EquitiesTable from "./EquitiesTable";
 import SectorLinksGrid from "./SectorLinksGrid";
 import MarketBoardMeta from "./MarketBoardMeta";
+import MarketFundamentalsBar from "./MarketFundamentalsBar";
 import ErrorState from "@/components/common/ErrorState";
-import LoadingState from "@/components/common/LoadingState";
 import { retryMarketStocksFetch } from "@/lib/marketCacheRetry";
 import { mapUsStocksSource } from "@/lib/mapStocksSource";
 
@@ -29,6 +29,7 @@ type USEquitiesBoardProps = {
 };
 
 export default function USEquitiesBoard({ compact, sectorFilter }: USEquitiesBoardProps) {
+  const queryClient = useQueryClient();
   const wsCtx = useMarketWebSocketContext();
   const streamConnected = wsCtx?.isConnected ?? false;
 
@@ -59,7 +60,7 @@ export default function USEquitiesBoard({ compact, sectorFilter }: USEquitiesBoa
     return Number.isFinite(t) ? t : undefined;
   }, [cacheStatus?.lastUpdated]);
 
-  const handleRetry = () => void retryMarketStocksFetch(refetch);
+  const handleRetry = () => void retryMarketStocksFetch(refetch, queryClient);
 
   const symbols = useMemo(() => (stocks ?? []).map((s) => s.symbol), [stocks]);
   const {
@@ -72,7 +73,7 @@ export default function USEquitiesBoard({ compact, sectorFilter }: USEquitiesBoa
   const rows = useMemo(() => {
     return (stocks ?? []).map((s) => {
       const eq = usToEquity(s);
-      const live = resolveLiveEquityQuote(eq, liveQuotes[s.symbol], liveTicks[s.symbol]);
+      const live = resolveLiveEquityQuoteFromMaps(eq, liveQuotes, liveTicks);
       return { ...eq, price: live.price, change: live.change, changePercent: live.changePercent, volume: live.volume };
     });
   }, [stocks, liveQuotes, liveTicks]);
@@ -84,8 +85,8 @@ export default function USEquitiesBoard({ compact, sectorFilter }: USEquitiesBoa
     staleTime: 12_000,
   });
   const indexItems = useMemo(
-    () => buildBoardIndexStripItems("us", indexPayload?.data, wsIndices),
-    [indexPayload?.data, wsIndices]
+    () => buildBoardIndexStripItems("us", indexPayload?.data, wsIndices, isConnected),
+    [indexPayload?.data, wsIndices, isConnected]
   );
 
   const table = (
@@ -107,6 +108,7 @@ export default function USEquitiesBoard({ compact, sectorFilter }: USEquitiesBoa
             : undefined
       }
       liveStream={isConnected}
+      stocksSource={mapUsStocksSource(cacheStatus?.usSource)}
     />
   );
 
@@ -116,7 +118,7 @@ export default function USEquitiesBoard({ compact, sectorFilter }: USEquitiesBoa
     return (
       <ErrorState
         title="미국 종목을 불러오지 못했습니다"
-        message="백엔드(8000) 실행 후 새로고침하세요. 주식대시보드_실행.bat으로 다시 띄우면 됩니다."
+        message="백엔드(8000) 실행 후 새로고침하세요. 주식대시보드_통합.bat(메뉴 1)으로 다시 띄우면 됩니다."
         onRetry={handleRetry}
       />
     );
@@ -127,9 +129,7 @@ export default function USEquitiesBoard({ compact, sectorFilter }: USEquitiesBoa
     "API 서버(8000) 실행 여부를 확인한 뒤 다시 시도해 주세요. Yahoo 요청 한도(429)일 수 있습니다.";
 
   const mainContent =
-    isLoading && rows.length === 0 ? (
-      <LoadingState rows={6} />
-    ) : !isLoading && rows.length === 0 ? (
+    !isLoading && rows.length === 0 ? (
       <div className="inv-market-empty-main">
         <ErrorState
           title="종목 데이터가 비어 있습니다"
@@ -140,9 +140,11 @@ export default function USEquitiesBoard({ compact, sectorFilter }: USEquitiesBoa
     ) : (
       <div className="inv-market-main-stack">
         {table}
-        <Suspense fallback={null}>
-          <SectorLinksGrid market="us" />
-        </Suspense>
+        {!isLoading && (
+          <Suspense fallback={null}>
+            <SectorLinksGrid market="us" />
+          </Suspense>
+        )}
       </div>
     );
 
@@ -160,6 +162,11 @@ export default function USEquitiesBoard({ compact, sectorFilter }: USEquitiesBoa
           stocksNotice={cacheStatus?.message}
           wsConnected={isConnected}
           sectorFilter={sectorFilter}
+        />
+        <MarketFundamentalsBar
+          rows={rows}
+          market="us"
+          stocksSource={mapUsStocksSource(cacheStatus?.usSource)}
         />
       </div>
       {mainContent}

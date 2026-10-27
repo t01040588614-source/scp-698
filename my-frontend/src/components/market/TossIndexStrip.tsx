@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import AppLink from "@/components/common/AppLink";
+import { indexMarketsHref } from "@/lib/indexStrip";
 import type { MarketIndexQuote } from "@/types/stock";
 import {
   directionSymbol,
@@ -31,14 +33,14 @@ export default function TossIndexStrip({ items }: TossIndexStripProps) {
         {items.map((item, i) => (
           <article key={item.id} className="toss-index-card" role="listitem">
             {i > 0 && <span className="toss-index-divider" aria-hidden />}
-            <Link href={`/markets?index=${item.id}`} className="toss-index-card-inner">
+            <AppLink href={indexMarketsHref(item.id)} className="toss-index-card-inner">
               <span className="toss-index-name">{item.name}</span>
               <span className="toss-index-price tabular">{formatIndexPrice(item.id, item.price)}</span>
               <span className={`toss-index-chg tabular ${priceClass(item.change)}`}>
                 {directionSymbol(item.change)}
                 {formatChange(item.change)}({formatPercent(item.changePercent)})
               </span>
-            </Link>
+            </AppLink>
           </article>
         ))}
       </div>

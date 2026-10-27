@@ -18,19 +18,24 @@ const STREAM_INTERVALS: { key: StreamIntervalKey; label: string }[] = [
   { key: "month-range", label: "1달" },
 ];
 
-type ExtraIntervalKey = "15m" | "30m" | "5h" | "1w";
+type ExtraIntervalKey = "1m" | "2m" | "15m" | "30m" | "5h" | "1w";
 
 const EXTRA_INTERVALS: { key: ExtraIntervalKey; label: string }[] = [
+  { key: "1m", label: "1" },
+  { key: "2m", label: "2" },
   { key: "15m", label: "15" },
   { key: "30m", label: "30" },
   { key: "5h", label: "5시간" },
-  { key: "1w", label: "1주" },
+  { key: "1w", label: "7일" },
 ];
 
 const FOOTER_RANGES: { id: ChartHubPeriodId; label: string }[] = [
-  { id: "max", label: "10y" },
-  { id: "1y", label: "1y" },
-  { id: "1m", label: "1m" },
+  { id: "max", label: "전체" },
+  { id: "1y", label: "1년" },
+  { id: "6m", label: "6달" },
+  { id: "5mo", label: "5달" },
+  { id: "3m", label: "3달" },
+  { id: "1m", label: "1달" },
   { id: "1w", label: "7일" },
   { id: "1d", label: "1일" },
 ];
@@ -55,6 +60,8 @@ type Props = {
   tools: ChartStreamToolsBinding;
   /** Investing.com 차트 — 상단 헤더·좌측 드로잉 레일 숨김 */
   investingChrome?: boolean;
+  /** 종목 상세 — 하단 기간 중복(수익률 스트립 사용) */
+  hideFooterRanges?: boolean;
   streamVariant?: "investing" | "toss";
 };
 
@@ -84,6 +91,7 @@ export default function ChartStreamingLayout({
   volumeLabel = "거래량 (20)",
   tools,
   investingChrome = true,
+  hideFooterRanges = false,
   streamVariant = "investing",
 }: Props) {
   const [extraOpen, setExtraOpen] = useState(false);
@@ -120,6 +128,14 @@ export default function ChartStreamingLayout({
   const pickExtraInterval = (key: ExtraIntervalKey) => {
     setExtraOpen(false);
     switch (key) {
+      case "1m":
+        onPeriodChange("1d");
+        onIntradayChange("1m");
+        break;
+      case "2m":
+        onPeriodChange("1d");
+        onIntradayChange("2m");
+        break;
       case "15m":
         onPeriodChange("1d");
         onIntradayChange("15m");
@@ -142,6 +158,8 @@ export default function ChartStreamingLayout({
   };
 
   const extraIntervalActive = useMemo(() => {
+    if (activePeriod === "1d" && intradayInterval === "1m") return "1m";
+    if (activePeriod === "1d" && intradayInterval === "2m") return "2m";
     if (activePeriod === "1d" && intradayInterval === "15m") return "15m";
     if (activePeriod === "1d" && intradayInterval === "30m") return "30m";
     if (activePeriod === "1w" && intradayInterval === "1h") return "5h";
@@ -156,9 +174,9 @@ export default function ChartStreamingLayout({
       case "1h":
         return activePeriod === "1d" && intradayInterval === "1h";
       case "day-bar":
-        return intradayInterval === "1d" && !["1d", "1w"].includes(activePeriod);
+        return activePeriod === "6m" && intradayInterval === "1d";
       case "month-range":
-        return activePeriod === "1m";
+        return activePeriod === "1m" && intradayInterval === "1d";
       default:
         return false;
     }
@@ -450,21 +468,25 @@ export default function ChartStreamingLayout({
           </div>
 
           <footer className="inv-stream-footer">
-            <div className="inv-stream-footer-ranges">
-              {FOOTER_RANGES.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  className={`inv-stream-range${activePeriod === r.id ? " is-active" : ""}`}
-                  onClick={() => onPeriodChange(r.id)}
-                >
-                  {r.label}
+            {!hideFooterRanges ? (
+              <div className="inv-stream-footer-ranges">
+                {FOOTER_RANGES.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    className={`inv-stream-range${activePeriod === r.id ? " is-active" : ""}`}
+                    onClick={() => onPeriodChange(r.id)}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+                <button type="button" className="inv-stream-range inv-stream-range--ghost" onClick={tools.onGoToDate}>
+                  Go to…
                 </button>
-              ))}
-              <button type="button" className="inv-stream-range inv-stream-range--ghost" onClick={tools.onGoToDate}>
-                Go to…
-              </button>
-            </div>
+              </div>
+            ) : (
+              <div className="inv-stream-footer-ranges inv-stream-footer-ranges--compact" aria-hidden />
+            )}
             <div className="inv-stream-footer-right">
               <span className="inv-stream-clock tabular">{clock} (UTC+9)</span>
               <button

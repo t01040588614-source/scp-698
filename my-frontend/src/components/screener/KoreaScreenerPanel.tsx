@@ -91,7 +91,7 @@ export default function KoreaScreenerPanel({ value, onChange, onApply }: Props) 
       <header className="inv-screener-head">
         <h3 className="inv-widget-title">종목 스크리너</h3>
         <p className="inv-page-desc inv-page-desc--compact">
-          Investing.com 한국 종목 목록 스타일 — 필터·정렬·저장 (DOCX 명세)
+          필터·정렬·저장으로 원하는 종목을 빠르게 찾아보세요.
         </p>
       </header>
       <div className="inv-screener-grid">

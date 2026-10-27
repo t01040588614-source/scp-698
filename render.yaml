@@ -42,7 +42,7 @@ services:
     region: singapore
     dockerfilePath: ./my-frontend/Dockerfile
     dockerContext: ./my-frontend
-    healthCheckPath: /markets
+    healthCheckPath: /
     envVars:
       - key: STOCK_API_PROXY
         fromService:

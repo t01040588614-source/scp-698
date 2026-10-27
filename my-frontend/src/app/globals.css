@@ -8,6 +8,7 @@
 @import "../styles/app-polish.css";
 @import "../styles/market-board.css";
 @import "../styles/layout-shell-fix.css";
+@import "../styles/app-market-chrome.css";
 @import "../styles/layout-sticky-sides.css";
 @import "../styles/dark-theme-polish.css";
 @import "../styles/investing-markets-hub.css";
@@ -26,12 +27,22 @@
 
 /* Tailwind Preflight 이후 테마/레이아웃 재적용 */
 @layer base {
+  html {
+    scroll-padding-top: var(--scroll-padding-top);
+  }
+
   body {
     background: var(--page-background);
     background-image: var(--page-background-gradient);
     background-attachment: fixed;
     color: var(--text-primary);
-    font-family: Arial, Helvetica, "Segoe UI", "Malgun Gothic", sans-serif;
+    font-family:
+      Pretendard,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      "Malgun Gothic",
+      sans-serif;
     font-size: 14px;
     line-height: 1.45;
   }

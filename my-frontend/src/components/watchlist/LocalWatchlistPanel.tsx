@@ -3,24 +3,35 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/context/AuthContext";
 import { stockApi } from "@/lib/api";
-import { readLocalWatchlist, type WatchlistEntry } from "@/lib/localWatchlist";
+import type { WatchlistEntry } from "@/lib/localWatchlist";
+import { loadWatchlistForUi } from "@/lib/watchlistFacade";
 import LiveStreamBadge from "@/components/common/LiveStreamBadge";
 import { mergeLiveStockPrice } from "@/lib/liveQuoteMerge";
 import { useLiveSymbols } from "@/hooks/useLiveSymbols";
 import { formatPercent, formatPrice, priceClass } from "@/lib/format";
+import { pickWsQuote } from "@/lib/wsSymbolKey";
 import { addPriceAlert, inferDirection } from "@/lib/priceAlerts";
 import StockNameWithLogo from "@/components/market/StockNameWithLogo";
+import { buildLoginHref } from "@/lib/authNavigation";
 
 export default function LocalWatchlistPanel() {
+  const { isAuthenticated } = useAuth();
   const [items, setItems] = useState<WatchlistEntry[]>([]);
 
   useEffect(() => {
-    const sync = () => setItems(readLocalWatchlist());
+    if (!isAuthenticated) {
+      setItems([]);
+      return;
+    }
+    const sync = () => {
+      void loadWatchlistForUi().then(setItems);
+    };
     sync();
     window.addEventListener("local-watchlist-changed", sync);
     return () => window.removeEventListener("local-watchlist-changed", sync);
-  }, []);
+  }, [isAuthenticated]);
 
   const symbols = useMemo(() => items.map((i) => i.symbol), [items]);
   const needsKorea = items.some((i) => i.market === "korea");
@@ -42,7 +53,7 @@ export default function LocalWatchlistPanel() {
   const quoteByKey = useMemo(() => {
     const map = new Map<string, { price: number; changePercent: number }>();
     for (const s of koreaStocks ?? []) {
-      const live = quotes[s.symbol];
+      const live = pickWsQuote(s.symbol, quotes);
       const merged = mergeLiveStockPrice(
         s.price,
         s.change,
@@ -56,7 +67,7 @@ export default function LocalWatchlistPanel() {
       });
     }
     for (const s of usStocks ?? []) {
-      const live = quotes[s.symbol];
+      const live = pickWsQuote(s.symbol, quotes);
       const merged = mergeLiveStockPrice(
         s.price,
         s.change,
@@ -70,7 +81,7 @@ export default function LocalWatchlistPanel() {
       });
     }
     for (const item of items) {
-      const live = quotes[item.symbol];
+      const live = pickWsQuote(item.symbol, quotes);
       if (live !== undefined && !map.has(`${item.market}-${item.symbol}`)) {
         map.set(`${item.market}-${item.symbol}`, { price: live, changePercent: 0 });
       }
@@ -95,11 +106,38 @@ export default function LocalWatchlistPanel() {
     });
   };
 
+  const title = "관심종목";
+
+  if (!isAuthenticated) {
+    return (
+      <section className="inv-widget">
+        <header className="inv-widget-head">
+          <h3 className="inv-widget-title">{title}</h3>
+          <Link href="/watchlist" className="inv-widget-more">
+            관리
+          </Link>
+        </header>
+        <p className="inv-widget-empty mb-3">로그인하면 관심종목을 계정에 저장할 수 있습니다.</p>
+        <button
+          type="button"
+          className="btn-primary text-sm px-4 py-2"
+          onClick={() => {
+            window.location.href = buildLoginHref(
+              typeof window !== "undefined" ? window.location.pathname : "/watchlist",
+            );
+          }}
+        >
+          로그인
+        </button>
+      </section>
+    );
+  }
+
   return (
     <section className="inv-widget">
       <header className="inv-widget-head">
         <h3 className="inv-widget-title">
-          관심종목 (로컬)
+          {title}
           <LiveStreamBadge connected={isConnected} showOffline className="inv-live-badge--inline" />
         </h3>
         <Link href="/watchlist" className="inv-widget-more">

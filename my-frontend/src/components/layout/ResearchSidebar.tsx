@@ -13,6 +13,8 @@ export type ResearchSidebarOptions = {
   showWatchlist?: boolean;
   /** false면 지수 차트 위젯 숨김 (/markets 본문과 중복 방지) */
   showIndicesWidget?: boolean;
+  /** 종목 상세 등 — 지수·랭킹 위주의 짧은 사이드 */
+  compactSidebar?: boolean;
 };
 
 export default function ResearchSidebar({
@@ -22,6 +24,7 @@ export default function ResearchSidebar({
   showCalendar = true,
   showWatchlist = true,
   showIndicesWidget = true,
+  compactSidebar = false,
 }: ResearchSidebarOptions) {
   const indexIds = showIndicesWidget ? ALL_WS_INDEX_IDS : [];
   const { indices: wsIndices, isConnected } = useMarketWebSocket([], indexIds);
@@ -38,6 +41,7 @@ export default function ResearchSidebar({
         liveIndices={wsIndices}
         indicesStreamConnected={isConnected}
         subscribeIndexIds={indexIds}
+        compactSidebar={compactSidebar}
       />
     </>
   );

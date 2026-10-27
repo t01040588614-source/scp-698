@@ -4,7 +4,7 @@ DOCX 명세 기준 **웹·모바일 반응형** 금융·시장 데이터 프론�
 
 ## 실행 (권장: 원클릭)
 
-프로젝트 루트에서 **`주식대시보드_실행.bat`** 또는 **`start.bat`** 더블클릭:
+프로젝트 루트에서 **`주식대시보드_통합.bat`** (메뉴 1) 또는 **`start.bat -Dev`**:
 
 - 8000/3000 포트 정리 → `.next` 삭제 후 백·프론트 기동 (빠른 재시작: `-SkipClean`)
 - CSS 200 확인 후 **브라우저에서 http://127.0.0.1:3000/korea 자동 오픈**
@@ -25,7 +25,7 @@ npm run dev
 
 **원인:** `npm run dev` 실행 중 `npm run build`를 돌리거나, dev 서버를 재시작하지 않고 `.next`만 바뀐 경우.
 
-**권장:** `주식대시보드_실행.bat`으로 다시 시작 (포트 정리 + `.next` 삭제 + 브라우저 자동 오픈).
+**권장:** `주식대시보드_통합.bat` 메뉴 1 (포트 정리 + `.next` 삭제 + 브라우저 자동 오픈).
 
 `layout.tsx`에 **인라인 critical CSS**가 있어 CSS 404 시에도 최소 레이아웃은 유지됩니다.
 
@@ -120,5 +120,7 @@ npm run dev
 ## 남은 TODO (추가보완)
 
 - `metadataBase` 실제 도메인 (`src/lib/seo.ts`)
-- 한국 장중 HTS급 틱 (KIS 등) — 현재 FDR 일봉 + 캐시 WS
+- **M2 (DOCX 유일 미구현):** KIS **HTS급 체결 틱** — 없음. 현재 「실시간」 UI는 **캐시 기반 준실시간 WS**(장중 ~0.35초). 일봉·차트는 FDR/Yahoo. [SPEC_STATUS.md](../docs/SPEC_STATUS.md)
 - 공식 PDF/DOCX를 `docs/`에 넣고 [SPEC_STATUS.md](../docs/SPEC_STATUS.md) 대조
+
+백엔드는 DOCX **NestJS monorepo 대신 FastAPI 의도적 대체**(M1) — [DOCX_SPEC_MAPPING.md](../docs/DOCX_SPEC_MAPPING.md)

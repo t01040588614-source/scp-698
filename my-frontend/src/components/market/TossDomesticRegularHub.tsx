@@ -6,7 +6,9 @@ import { useQuery } from "@tanstack/react-query";
 import { stockApi } from "@/lib/api";
 import { useMarketWebSocket } from "@/hooks/useMarketWebSocket";
 import { useMarketWebSocketContext } from "@/context/MarketWebSocketProvider";
-import { stocksListRefetchMs } from "@/lib/marketRefreshIntervals";
+import { cacheStatusRefetchMs, stocksListRefetchMs } from "@/lib/marketRefreshIntervals";
+import { wsLiveInputsForSymbol } from "@/lib/equityQuotes";
+import { mergeLiveStockQuote } from "@/lib/liveQuoteMerge";
 import { ALL_WS_INDEX_IDS } from "@/lib/indexCatalog";
 import {
   computeBreadth,
@@ -37,7 +39,7 @@ function mergeLiveIndices(
   return Array.from(map.values());
 }
 
-/** 토스증권 국내 정규장 + 차트 탭 */
+/** 토스증권 국내 정규장 + 실시간/지수 탭 */
 export default function TossDomesticRegularHub() {
   const [mainTab, setMainTab] = useState<MainTab>("realtime");
   const wsCtx = useMarketWebSocketContext();
@@ -46,6 +48,11 @@ export default function TossDomesticRegularHub() {
   const { data: cacheStatus } = useQuery({
     queryKey: ["marketCacheStatus"],
     queryFn: () => stockApi.getMarketCacheStatus().then((r) => r.data),
+    refetchInterval: (query) => {
+      const status = query.state.data;
+      const regular = Boolean(status?.krMarketOpen || status?.usMarketOpen);
+      return cacheStatusRefetchMs(streamConnected, regular);
+    },
     staleTime: 2_000,
   });
   const regularSession = Boolean(cacheStatus?.krMarketOpen || cacheStatus?.usMarketOpen);
@@ -94,9 +101,24 @@ export default function TossDomesticRegularHub() {
   }, [allIndices]);
 
   const breadth = useMemo(() => {
-    const changes = (koreaStocks ?? []).map((s) => s.changePercent);
+    const liveQuotes = wsCtx?.quotes ?? {};
+    const liveTicks = wsCtx?.ticks ?? {};
+    const changes = (koreaStocks ?? []).map((s) => {
+      const { livePrice, tick } = wsLiveInputsForSymbol(s.symbol, liveQuotes, liveTicks);
+      return mergeLiveStockQuote(
+        {
+          price: s.price,
+          change: s.change,
+          changePercent: s.changePercent,
+          previousClose: s.previousClose,
+          volume: s.volume,
+        },
+        livePrice,
+        tick
+      ).changePercent;
+    });
     return computeBreadth(changes);
-  }, [koreaStocks]);
+  }, [koreaStocks, wsCtx?.quotes, wsCtx?.ticks]);
 
   return (
     <div className="toss-markets">
@@ -120,7 +142,7 @@ export default function TossDomesticRegularHub() {
           className={`toss-main-tab${mainTab === "realtime" ? " is-active" : ""}`}
           onClick={() => setMainTab("realtime")}
         >
-          차트
+          실시간
         </button>
         <button
           type="button"

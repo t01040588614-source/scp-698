@@ -441,6 +441,11 @@
   background: var(--surface-muted);
 }
 
+.inv-stream-footer-ranges--compact {
+  flex: 1;
+  min-height: 0;
+}
+
 .inv-stream-footer-ranges {
   display: flex;
   flex-wrap: wrap;

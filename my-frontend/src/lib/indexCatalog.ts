@@ -22,6 +22,7 @@ export const SIDEBAR_INDEX_TABS: SidebarIndexTab[] = [
 export {
   SIDEBAR_CHART_PERIODS,
   DEFAULT_CHART_PERIOD,
+  DEFAULT_SIDEBAR_CHART_PERIOD,
   normalizeChartPeriod,
   chartHistoryRefetchMs,
   type SidebarChartPeriod,

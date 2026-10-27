@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { authApi, setAuthToken } from '@/lib/api';
+import { authApi, clearAuthSession, getRefreshToken, setAuthToken, setRefreshToken } from '@/lib/api';
+import { syncUserDataAfterLogin } from '@/lib/userDataSync';
 import { setAccountOwnerId } from '@/services/accountsApi';
 import type { User, LoginCredentials, RegisterCredentials } from '@/types/auth';
 
@@ -13,7 +14,8 @@ interface AuthContextValue {
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => void;
-  setTokenFromOAuth: (accessToken: string) => Promise<void>;
+  clearSession: () => void;
+  setTokenFromOAuth: (accessToken: string, refreshToken?: string | null) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -36,8 +38,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const res = await authApi.getMe();
           setUser(res.data);
           setAccountOwnerId(String(res.data.id));
+          void syncUserDataAfterLogin();
         } catch {
-          setAuthToken(null);
+          clearAuthSession();
           setUser(null);
         }
       }
@@ -47,49 +50,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
-  const login = async (credentials: LoginCredentials) => {
+  const login = useCallback(async (credentials: LoginCredentials) => {
     const res = await authApi.login(credentials);
-    const { accessToken } = res.data;
+    const { accessToken, refreshToken } = res.data;
     setAuthToken(accessToken);
+    if (refreshToken) setRefreshToken(refreshToken);
 
     const meRes = await authApi.getMe();
     setUser(meRes.data);
     setAccountOwnerId(String(meRes.data.id));
-  };
+    void syncUserDataAfterLogin();
+  }, []);
 
-  const register = async (credentials: RegisterCredentials) => {
-    await authApi.register(credentials);
-    await login({ email: credentials.email, password: credentials.password });
-  };
-
-  const logout = () => {
-    setAuthToken(null);
-    setUser(null);
-    router.push('/');
-  };
-
-  const setTokenFromOAuth = async (accessToken: string) => {
-    setAuthToken(accessToken);
-    const meRes = await authApi.getMe();
-    setUser(meRes.data);
-    setAccountOwnerId(String(meRes.data.id));
-  };
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        isAuthenticated: !!user,
-        login,
-        register,
-        logout,
-        setTokenFromOAuth,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const register = useCallback(
+    async (credentials: RegisterCredentials) => {
+      await authApi.register(credentials);
+      await login({ email: credentials.email, password: credentials.password });
+    },
+    [login]
   );
+
+  const clearSession = useCallback(() => {
+    clearAuthSession();
+    setUser(null);
+  }, []);
+
+  const logout = useCallback(() => {
+    const refresh = getRefreshToken();
+    if (refresh) void authApi.logout(refresh).catch(() => undefined);
+    clearSession();
+    router.push('/');
+  }, [clearSession, router]);
+
+  const setTokenFromOAuth = useCallback(async (accessToken: string, refreshToken?: string | null) => {
+    setAuthToken(accessToken);
+    if (refreshToken) setRefreshToken(refreshToken);
+    const meRes = await authApi.getMe();
+    setUser(meRes.data);
+    setAccountOwnerId(String(meRes.data.id));
+    void syncUserDataAfterLogin();
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      user,
+      isLoading,
+      isAuthenticated: !!user,
+      login,
+      register,
+      logout,
+      clearSession,
+      setTokenFromOAuth,
+    }),
+    [user, isLoading, login, register, logout, clearSession, setTokenFromOAuth]
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

@@ -1,4 +1,14 @@
 import type { OhlcPoint } from "@/services/chartApi";
+import {
+  normalizeCalendarPeriodPoints,
+  padPointsToCalendarDays,
+  sanitizeOhlcValues,
+} from "@/lib/chartSeries";
+import {
+  chartDataIntervalForPeriod,
+  isCalendarPaddingBar,
+  isIntradayDataInterval,
+} from "@/lib/indexChartUtils";
 
 /** lightweight-charts Time (SSR-safe — 타입만 로컬 정의) */
 export type LwcTime = string | number;
@@ -10,6 +20,15 @@ export type LwcCandle = {
   low: number;
   close: number;
 };
+
+/** lightweight-charts — 휴장·결측 구간(whitespace) */
+export type LwcWhitespace = { time: LwcTime };
+
+export type LwcSeriesPoint = LwcCandle | LwcWhitespace;
+
+export function isLwcWhitespace(bar: LwcSeriesPoint): bar is LwcWhitespace {
+  return !("close" in bar);
+}
 
 const DAILY_CHART_PERIODS = new Set(["1w", "1m", "3m", "6m", "1y", "5y", "max"]);
 
@@ -36,52 +55,87 @@ function timeSortKey(t: LwcTime): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-/** 최근 N 캘린더 일 YYYY-MM-DD (백엔드 _pad_calendar_days 와 동일 창) */
-function recentCalendarDayKeys(count: number): string[] {
-  const anchor = new Date();
-  anchor.setHours(12, 0, 0, 0);
-  const days: string[] = [];
-  for (let i = 0; i < count; i += 1) {
-    const d = new Date(anchor);
-    d.setDate(d.getDate() - (count - 1 - i));
-    days.push(
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
-    );
+/** 1주·1달 — LWC time 축: 실제 달력일 대신 86400초 간격 (주말 공백·봉 희소 방지) */
+export const ORDINAL_SLOT_BASE_SEC = Math.floor(Date.UTC(2020, 0, 1) / 1000);
+
+export function ordinalSlotTime(slotIndex: number): number {
+  return ORDINAL_SLOT_BASE_SEC + slotIndex * 86_400;
+}
+
+export function ordinalSlotIndexFromTime(time: unknown): number | null {
+  let sec: number | null = null;
+  if (typeof time === "number" && Number.isFinite(time)) {
+    sec = time;
+  } else {
+    const ms = Date.parse(String(time));
+    if (Number.isFinite(ms)) sec = Math.floor(ms / 1000);
   }
-  return days;
+  if (sec == null) return null;
+  const idx = Math.round((sec - ORDINAL_SLOT_BASE_SEC) / 86_400);
+  if (idx < 0 || idx > 30) return null;
+  return idx;
+}
+
+function isShortCalendarChartPeriod(period?: string): period is "1w" | "1m" {
+  return period === "1w" || period === "1m";
+}
+
+function seriesForShortCalendarPeriod(
+  points: OhlcPoint[],
+  period: "1w" | "1m",
+  chartInterval?: string,
+): OhlcPoint[] {
+  const slotCount = period === "1w" ? 7 : 31;
+  let series = normalizeCalendarPeriodPoints(points, period, chartInterval);
+  if (series.length !== slotCount) {
+    series = padPointsToCalendarDays(series.length ? series : points, slotCount);
+  }
+  if (series.length > slotCount) series = series.slice(-slotCount);
+  return series;
 }
 
 export function ohlcPointsToLwcCandles(
   points: OhlcPoint[],
   period?: string,
   dataInterval?: string
-): LwcCandle[] {
+): LwcSeriesPoint[] {
   if (!points.length) return [];
 
-  if (period === "1w" || period === "1m") {
-    const slotCount = period === "1w" ? 7 : 31;
-    const dayKeys = recentCalendarDayKeys(slotCount);
-    return points.map((p, i) => {
-      const fromTs = p.timestamp ? toCalendarDay(p.timestamp) : null;
-      const time = fromTs ?? dayKeys[i] ?? dayKeys[Math.min(i, dayKeys.length - 1)];
-      return {
-        time,
+  const chartInterval = chartDataIntervalForPeriod(period ?? "", dataInterval);
+
+  if (isShortCalendarChartPeriod(period) && !isIntradayDataInterval(chartInterval)) {
+    const slotPoints = seriesForShortCalendarPeriod(points, period, chartInterval);
+    return slotPoints.map((p, i) => {
+      const time = ordinalSlotTime(i);
+      let ohlc = sanitizeOhlcValues({
         open: p.open,
         high: p.high,
         low: p.low,
         close: p.close,
-      };
+      });
+      if (isCalendarPaddingBar(p) && ohlc.close > 0) {
+        const eps = Math.max(ohlc.close * 0.00012, 0.01);
+        ohlc = {
+          ...ohlc,
+          high: ohlc.close + eps,
+          low: Math.max(0.01, ohlc.close - eps),
+        };
+      }
+      return { time, ...ohlc };
     });
   }
 
-  const intraday = isIntradayInterval(dataInterval);
+  const series = points;
+
+  const intraday = isIntradayInterval(chartInterval ?? dataInterval);
   const useBusinessDay =
-    !intraday && (period ? DAILY_CHART_PERIODS.has(period) || dataInterval === "1d" : false);
-  const baseSec = Math.floor(Date.now() / 1000) - points.length * 86_400;
+    !intraday &&
+    (period ? DAILY_CHART_PERIODS.has(period) || chartInterval === "1d" || dataInterval === "1d" : false);
+  const baseSec = Math.floor(Date.now() / 1000) - series.length * 86_400;
   const mapped: LwcCandle[] = [];
 
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i];
+  for (let i = 0; i < series.length; i++) {
+    const p = series[i];
     let time: LwcTime;
 
     if (p.timestamp) {
@@ -103,10 +157,12 @@ export function ohlcPointsToLwcCandles(
 
     mapped.push({
       time,
-      open: p.open,
-      high: p.high,
-      low: p.low,
-      close: p.close,
+      ...sanitizeOhlcValues({
+        open: p.open,
+        high: p.high,
+        low: p.low,
+        close: p.close,
+      }),
     });
   }
 
@@ -122,26 +178,30 @@ export function ohlcPointsToLwcCandles(
     }
     byTime.set(key, {
       time: c.time,
-      open: prev.open,
-      high: Math.max(prev.high, c.high),
-      low: Math.min(prev.low, c.low),
-      close: c.close,
+      ...sanitizeOhlcValues({
+        open: prev.open,
+        high: Math.max(prev.high, c.high),
+        low: Math.min(prev.low, c.low),
+        close: c.close,
+      }),
     });
   }
   const deduped = Array.from(byTime.values()).sort((a, b) => timeSortKey(a.time) - timeSortKey(b.time));
 
   // 동일 일자·타임스탬프로 뭉개져 봉이 2개 이하일 때 — 순번 기반 일봉 키로 복원
-  if (useBusinessDay && points.length >= 8 && deduped.length < Math.min(8, Math.floor(points.length * 0.25))) {
-    const baseSec = Math.floor(Date.now() / 1000) - points.length * 86_400;
-    return points.map((p, i) => {
+  if (useBusinessDay && series.length >= 8 && deduped.length < Math.min(8, Math.floor(series.length * 0.25))) {
+    const baseSec = Math.floor(Date.now() / 1000) - series.length * 86_400;
+    return series.map((p, i) => {
       const d = new Date(baseSec * 1000 + i * 86_400 * 1000);
       const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       return {
         time: day,
-        open: p.open,
-        high: p.high,
-        low: p.low,
-        close: p.close,
+        ...sanitizeOhlcValues({
+          open: p.open,
+          high: p.high,
+          low: p.low,
+          close: p.close,
+        }),
       };
     });
   }

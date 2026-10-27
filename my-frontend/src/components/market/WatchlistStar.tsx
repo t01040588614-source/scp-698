@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { isInLocalWatchlist, toggleLocalWatchlist, type WatchlistEntry } from "@/lib/localWatchlist";
+import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { useLoginPrompt } from "@/context/LoginPromptContext";
+import { isInWatchlist, toggleWatchlist, loadWatchlistForUi } from "@/lib/watchlistFacade";
+import type { WatchlistEntry } from "@/lib/localWatchlist";
 
 type WatchlistStarProps = {
   symbol: string;
@@ -10,14 +13,29 @@ type WatchlistStarProps = {
 };
 
 export default function WatchlistStar({ symbol, market, name }: WatchlistStarProps) {
+  const { isAuthenticated } = useAuth();
+  const { requireAuth } = useLoginPrompt();
   const [active, setActive] = useState(false);
 
+  const sync = useCallback(() => {
+    if (!isAuthenticated) {
+      setActive(false);
+      return;
+    }
+    setActive(isInWatchlist(symbol, market));
+  }, [symbol, market, isAuthenticated]);
+
   useEffect(() => {
-    const sync = () => setActive(isInLocalWatchlist(symbol, market));
     sync();
+    if (!isAuthenticated) return;
+    void loadWatchlistForUi().then(sync);
     window.addEventListener("local-watchlist-changed", sync);
-    return () => window.removeEventListener("local-watchlist-changed", sync);
-  }, [symbol, market]);
+    window.addEventListener("auth:session-expired", sync);
+    return () => {
+      window.removeEventListener("local-watchlist-changed", sync);
+      window.removeEventListener("auth:session-expired", sync);
+    };
+  }, [sync, isAuthenticated]);
 
   return (
     <button
@@ -27,8 +45,9 @@ export default function WatchlistStar({ symbol, market, name }: WatchlistStarPro
       aria-pressed={active}
       onClick={() => {
         const entry: WatchlistEntry = { symbol, market, name };
-        toggleLocalWatchlist(entry);
-        setActive(isInLocalWatchlist(symbol, market));
+        requireAuth("watchlist", () => {
+          void toggleWatchlist(entry).then(() => sync());
+        });
       }}
     >
       ★

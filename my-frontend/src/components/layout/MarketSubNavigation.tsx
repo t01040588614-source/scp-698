@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import MarketSessionPills from "@/components/market/MarketSessionPills";
+import AppLink from "@/components/common/AppLink";
 
 const LINKS = [
   { href: "/korea", label: "한국 주식" },
@@ -15,7 +14,7 @@ const LINKS = [
 ] as const;
 
 export default function MarketSubNavigation() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/";
 
   return (
     <nav className="inv-market-subnav" aria-label="시장 하위 메뉴">
@@ -25,17 +24,16 @@ export default function MarketSubNavigation() {
             pathname === item.href ||
             (item.href !== "/markets" && pathname.startsWith(`${item.href}/`));
           return (
-            <Link
+            <AppLink
               key={item.href}
               href={item.href}
               className={active ? "is-active" : undefined}
               aria-current={active ? "page" : undefined}
             >
               {item.label}
-            </Link>
+            </AppLink>
           );
         })}
-        <MarketSessionPills variant="compact" className="inv-market-subnav-sessions" />
       </div>
     </nav>
   );

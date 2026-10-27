@@ -1,20 +1,20 @@
 "use client";
 
 import { Suspense, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { stockApi } from "@/lib/api";
 import { useMarketWebSocketContext } from "@/context/MarketWebSocketProvider";
 import { useMarketWebSocket } from "@/hooks/useMarketWebSocket";
 import { ALL_WS_INDEX_IDS } from "@/lib/indexCatalog";
 import { buildBoardIndexStripItems } from "@/lib/marketFromStocks";
-import { koreaToEquity, resolveLiveEquityQuote } from "@/lib/equityQuotes";
+import { koreaToEquity, resolveLiveEquityQuoteFromMaps } from "@/lib/equityQuotes";
 import { getMarketIndicesForBoard } from "@/services/marketApi";
 import IndexQuoteStrip from "./IndexQuoteStrip";
 import EquitiesTable from "./EquitiesTable";
 import SectorLinksGrid from "./SectorLinksGrid";
 import MarketBoardMeta from "./MarketBoardMeta";
+import MarketFundamentalsBar from "./MarketFundamentalsBar";
 import ErrorState from "@/components/common/ErrorState";
-import LoadingState from "@/components/common/LoadingState";
 import { retryMarketStocksFetch } from "@/lib/marketCacheRetry";
 import { mapKoreaStocksSource } from "@/lib/mapStocksSource";
 import {
@@ -29,6 +29,7 @@ type KoreaEquitiesBoardProps = {
 };
 
 export default function KoreaEquitiesBoard({ compact, sectorFilter }: KoreaEquitiesBoardProps) {
+  const queryClient = useQueryClient();
   const wsCtx = useMarketWebSocketContext();
   const streamConnected = wsCtx?.isConnected ?? false;
 
@@ -61,7 +62,7 @@ export default function KoreaEquitiesBoard({ compact, sectorFilter }: KoreaEquit
     return Number.isFinite(t) ? t : undefined;
   }, [cacheStatus?.lastUpdated]);
 
-  const handleRetry = () => void retryMarketStocksFetch(refetch);
+  const handleRetry = () => void retryMarketStocksFetch(refetch, queryClient);
 
   const symbols = useMemo(() => (stocks ?? []).map((s) => s.symbol), [stocks]);
   const {
@@ -74,7 +75,7 @@ export default function KoreaEquitiesBoard({ compact, sectorFilter }: KoreaEquit
   const rows = useMemo(() => {
     return (stocks ?? []).map((s) => {
       const eq = koreaToEquity(s);
-      const live = resolveLiveEquityQuote(eq, liveQuotes[s.symbol], liveTicks[s.symbol]);
+      const live = resolveLiveEquityQuoteFromMaps(eq, liveQuotes, liveTicks);
       return { ...eq, price: live.price, change: live.change, changePercent: live.changePercent, volume: live.volume };
     });
   }, [stocks, liveQuotes, liveTicks]);
@@ -86,8 +87,8 @@ export default function KoreaEquitiesBoard({ compact, sectorFilter }: KoreaEquit
     staleTime: 12_000,
   });
   const indexItems = useMemo(
-    () => buildBoardIndexStripItems("korea", indexPayload?.data, wsIndices),
-    [indexPayload?.data, wsIndices]
+    () => buildBoardIndexStripItems("korea", indexPayload?.data, wsIndices, isConnected),
+    [indexPayload?.data, wsIndices, isConnected]
   );
 
   const table = (
@@ -109,6 +110,7 @@ export default function KoreaEquitiesBoard({ compact, sectorFilter }: KoreaEquit
             : undefined
       }
       liveStream={isConnected}
+      stocksSource={mapKoreaStocksSource(cacheStatus?.koreaSource)}
     />
   );
 
@@ -131,9 +133,7 @@ export default function KoreaEquitiesBoard({ compact, sectorFilter }: KoreaEquit
     "API 서버(8000)가 실행 중인지 확인한 뒤, 1~2분 후 다시 시도해 주세요. Yahoo 시세는 요청 한도(429)에 걸리면 비어 있을 수 있습니다.";
 
   const mainContent =
-    isLoading && rows.length === 0 ? (
-      <LoadingState rows={6} />
-    ) : !isLoading && rows.length === 0 ? (
+    !isLoading && rows.length === 0 ? (
       <div className="inv-market-empty-main">
         <ErrorState
           title="종목 데이터가 비어 있습니다"
@@ -144,9 +144,11 @@ export default function KoreaEquitiesBoard({ compact, sectorFilter }: KoreaEquit
     ) : (
       <div className="inv-market-main-stack">
         {table}
-        <Suspense fallback={null}>
-          <SectorLinksGrid />
-        </Suspense>
+        {!isLoading && (
+          <Suspense fallback={null}>
+            <SectorLinksGrid />
+          </Suspense>
+        )}
       </div>
     );
 
@@ -164,6 +166,11 @@ export default function KoreaEquitiesBoard({ compact, sectorFilter }: KoreaEquit
           stocksNotice={cacheStatus?.message}
           wsConnected={isConnected}
           sectorFilter={sectorFilter}
+        />
+        <MarketFundamentalsBar
+          rows={rows}
+          market="korea"
+          stocksSource={mapKoreaStocksSource(cacheStatus?.koreaSource)}
         />
       </div>
       {mainContent}

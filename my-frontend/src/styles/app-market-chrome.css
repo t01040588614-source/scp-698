@@ -1,0 +1,121 @@
+/* 시장 크롬 — 빠른 이동·KR/US pill·하위 탭 (본문과 함께 스크롤) */
+
+.app-market-chrome-sticky {
+  background: var(--app-market-chrome-bg, var(--market-status-bg));
+}
+
+.desktop-header,
+.primary-navigation-bar {
+  backdrop-filter: saturate(1.2) blur(12px);
+}
+
+@media (max-width: 767px) {
+  .mobile-header {
+    backdrop-filter: saturate(1.2) blur(12px);
+  }
+}
+
+/* 안내·티커 — 접힘 없이 항상 표시 */
+.app-market-chrome-sticky .app-highlight-bar,
+.app-market-chrome-sticky .market-ticker-bleed {
+  overflow: visible;
+  max-height: none;
+  opacity: 1;
+}
+
+/* scroll-margin·표 sticky — 고정 헤더 높이만 반영 */
+html:has(.app-market-chrome-sticky--with-ticker:not(.app-market-chrome-sticky--extended)) {
+  --scroll-padding-top: var(--app-market-chrome-sticky-top);
+  --page-table-sticky-top: var(--scroll-padding-top);
+}
+
+@media (max-width: 900px) {
+  html:has(.app-market-chrome-sticky--with-ticker:not(.app-market-chrome-sticky--extended)) {
+    --scroll-padding-top: calc(
+      var(--mobile-header-height) + var(--app-market-sessions-mobile-height)
+    );
+    --page-table-sticky-top: var(--scroll-padding-top);
+  }
+}
+
+@media (min-width: 1024px) {
+  html:has(.app-market-chrome-sticky--with-ticker:not(.app-market-chrome-sticky--extended)) {
+    --layout-sticky-top: calc(var(--app-market-chrome-sticky-top) + var(--layout-sticky-gutter));
+  }
+}
+
+/* 모바일 — 빠른 이동 pill 가로 스크롤 */
+@media (max-width: 767px) {
+  .inv-market-status-inner {
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .inv-market-status-inner::-webkit-scrollbar {
+    display: none;
+  }
+
+  .inv-quick-links {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    margin-left: 0;
+    max-width: none;
+  }
+
+  .inv-quick-links a {
+    padding: 7px 14px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .inv-market-status {
+    position: relative;
+  }
+
+  .inv-market-status::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 24px;
+    background: linear-gradient(90deg, transparent, var(--market-status-bg));
+    pointer-events: none;
+  }
+}
+
+/* 한국/미국/종목 — 하위 탭 포함 페이지 */
+html:has(.app-market-chrome-sticky--extended) {
+  --scroll-padding-top: var(--app-market-chrome-sticky-top);
+  --page-table-sticky-top: var(--scroll-padding-top);
+}
+
+@media (max-width: 900px) {
+  html:has(.app-market-chrome-sticky--extended) {
+    --scroll-padding-top: calc(
+      var(--mobile-header-height) + var(--app-market-sessions-mobile-height)
+    );
+    --page-table-sticky-top: var(--scroll-padding-top);
+  }
+}
+
+@media (min-width: 1024px) {
+  html:has(.app-market-chrome-sticky--extended) {
+    --layout-sticky-top: calc(var(--app-market-chrome-sticky-top) + var(--layout-sticky-gutter));
+  }
+}
+
+.desktop-header {
+  background: color-mix(in srgb, var(--header-bg) 93%, transparent);
+}
+
+.primary-navigation-bar {
+  background: color-mix(in srgb, var(--header-bg) 93%, transparent);
+}
+
+[data-theme="light"] .primary-navigation-bar {
+  background: color-mix(in srgb, var(--chrome-bg-elevated) 93%, transparent);
+}

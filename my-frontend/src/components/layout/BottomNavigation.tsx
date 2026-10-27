@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import AppLink from "@/components/common/AppLink";
 import { uiConfig } from "@/config/uiConfig";
 
 function isActive(pathname: string, href: string) {
@@ -15,14 +15,14 @@ export default function BottomNavigation() {
   return (
     <nav className="bottom-navigation flex md:hidden" aria-label="모바일 주요 메뉴">
       {uiConfig.navigation.mobileItems.map((item) => (
-        <Link
-          key={item.href}
+        <AppLink
+          key={item.id}
           href={item.href}
           aria-current={isActive(pathname, item.href) ? "page" : undefined}
         >
           <span aria-hidden="true">{item.short}</span>
           <span>{item.label}</span>
-        </Link>
+        </AppLink>
       ))}
     </nav>
   );

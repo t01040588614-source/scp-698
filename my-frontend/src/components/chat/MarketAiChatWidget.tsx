@@ -20,6 +20,10 @@ import {
 } from "lucide-react";
 import { chatApi, type ChatTurn } from "@/services/chatApi";
 import { parsePageContext } from "@/lib/chatPageContext";
+import {
+  MARKET_AI_CHAT_OPEN_EVENT,
+  type MarketAiChatOpenDetail,
+} from "@/lib/marketAiChatEvents";
 import ChatMessageBody from "@/components/chat/ChatMessageBody";
 
 const STORAGE_KEY = "marketlens-ai-chat-v2";
@@ -90,6 +94,11 @@ export default function MarketAiChatWidget() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatTurn[]>([]);
   const [pendingUser, setPendingUser] = useState<string | null>(null);
+  const [contextOverride, setContextOverride] = useState<{
+    symbol?: string;
+    market?: string;
+  } | null>(null);
+  const [bootstrapMessage, setBootstrapMessage] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -101,9 +110,17 @@ export default function MarketAiChatWidget() {
     [pathname, searchParams]
   );
 
+  const activeSymbol = contextOverride?.symbol ?? pageCtx.symbol;
+  const activeMarket = contextOverride?.market ?? pageCtx.market;
+
   useEffect(() => {
     setMessages(loadHistory());
   }, []);
+
+  useEffect(() => {
+    setOpen(false);
+    setBootstrapMessage(null);
+  }, [pathname]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -123,6 +140,33 @@ export default function MarketAiChatWidget() {
     if (open) inputRef.current?.focus();
   }, [open]);
 
+  useEffect(() => {
+    const onOpenRequest = (event: Event) => {
+      const detail = (event as CustomEvent<MarketAiChatOpenDetail>).detail;
+      if (detail?.symbol || detail?.market) {
+        setContextOverride({
+          symbol: detail.symbol,
+          market: detail.market,
+        });
+      } else {
+        setContextOverride(null);
+      }
+      setOpen(true);
+      const message = detail?.message?.trim();
+      if (message) {
+        if (detail?.autoSend) {
+          setBootstrapMessage(message);
+          setInput("");
+        } else {
+          setBootstrapMessage(null);
+          setInput(message);
+        }
+      }
+    };
+    window.addEventListener(MARKET_AI_CHAT_OPEN_EVENT, onOpenRequest);
+    return () => window.removeEventListener(MARKET_AI_CHAT_OPEN_EVENT, onOpenRequest);
+  }, []);
+
   const status = useQuery({
     queryKey: ["chatStatus"],
     queryFn: () => chatApi.getStatus(),
@@ -131,12 +175,12 @@ export default function MarketAiChatWidget() {
   });
 
   const context = useQuery({
-    queryKey: ["chatContext", fullPath, pageCtx.symbol, pageCtx.market],
+    queryKey: ["chatContext", fullPath, activeSymbol, activeMarket],
     queryFn: () =>
       chatApi.getContext({
         pagePath: fullPath || pathname || undefined,
-        symbol: pageCtx.symbol,
-        market: pageCtx.market,
+        symbol: activeSymbol,
+        market: activeMarket,
       }),
     enabled: open,
     staleTime: 20_000,
@@ -148,8 +192,8 @@ export default function MarketAiChatWidget() {
         message: text,
         history: messages,
         pagePath: fullPath || pathname || undefined,
-        symbol: pageCtx.symbol,
-        market: pageCtx.market,
+        symbol: activeSymbol,
+        market: activeMarket,
       }),
     onMutate: (text) => {
       setPendingUser(text);
@@ -182,13 +226,27 @@ export default function MarketAiChatWidget() {
     [input, send]
   );
 
+  const configured = status.data?.configured ?? false;
+
+  useEffect(() => {
+    if (!open || !bootstrapMessage || status.isLoading) return;
+    const text = bootstrapMessage.trim().slice(0, MAX_LEN);
+    if (!configured) {
+      if (text) setInput(text);
+      setBootstrapMessage(null);
+      return;
+    }
+    if (send.isPending || !text) return;
+    setBootstrapMessage(null);
+    send.mutate(text);
+  }, [open, bootstrapMessage, configured, status.isLoading, send.isPending, send]);
+
   const clearChat = useCallback(() => {
     setMessages([]);
     setPendingUser(null);
     sessionStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  const configured = status.data?.configured ?? false;
   const maxLen = status.data?.maxMessageLength ?? MAX_LEN;
   const prompts = context.data?.suggestedPrompts ?? [];
   const quote = context.data?.quote;
@@ -283,7 +341,7 @@ export default function MarketAiChatWidget() {
             </div>
           </header>
 
-          {(pageLabel || quote || pageCtx.symbol) && (
+          {(pageLabel || quote || activeSymbol) && (
             <div className="ai-chat-context-bar">
               {pageLabel ? (
                 <span className="ai-chat-context-chip">
@@ -300,7 +358,7 @@ export default function MarketAiChatWidget() {
                   <div className="ai-chat-quote-main">
                     <span className="ai-chat-quote-name">{quote.name ?? quote.symbol}</span>
                     {quote.price != null ? (
-                      <span className="ai-chat-quote-price">{formatPrice(Number(quote.price), pageCtx.market)}</span>
+                      <span className="ai-chat-quote-price">{formatPrice(Number(quote.price), activeMarket)}</span>
                     ) : null}
                   </div>
                   {quote.changePercent != null ? (
@@ -315,7 +373,7 @@ export default function MarketAiChatWidget() {
                     </span>
                   ) : null}
                 </div>
-              ) : pageCtx.symbol && context.isFetching ? (
+              ) : activeSymbol && context.isFetching ? (
                 <span className="ai-chat-context-loading">Loading quote snapshot…</span>
               ) : null}
             </div>

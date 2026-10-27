@@ -545,37 +545,7 @@
   background: var(--surface);
 }
 
-.inv-layout-3col {
-  grid-template-columns: 44px minmax(0, 1fr) minmax(280px, 320px);
-  gap: 0;
-  border: 1px solid var(--border-color);
-  background: var(--surface);
-}
-
-@media (min-width: 1280px) {
-  .inv-layout-3col {
-    grid-template-columns: 48px minmax(0, 1fr) minmax(300px, 360px);
-  }
-}
-
-.inv-split-main {
-  border-right: 1px solid var(--border-color);
-}
-
-.inv-split-aside {
-  padding: var(--space-3);
-  background: var(--surface);
-  overflow: visible;
-  max-height: none;
-}
-
-.inv-tool-rail {
-  border: 0;
-  border-right: 1px solid var(--border-color);
-  border-radius: 0;
-  box-shadow: none;
-  background: var(--tool-rail-bg);
-}
+/* 3열 레이아웃 — investing.css + layout-sticky-sides (MarketsSplitLayout 전용) */
 
 [data-theme="light"] .desktop-actions .app-header-cta {
   padding: 7px 13px;

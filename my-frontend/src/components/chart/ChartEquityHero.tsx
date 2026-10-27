@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { formatChange, formatPercent, formatPrice, priceClass } from "@/lib/format";
 import StockCompanyLogo from "@/components/market/StockCompanyLogo";
+import EquityTradeButtons from "@/components/quote/EquityTradeButtons";
 type ChartEquityHeroProps = {
   name: string;
   symbol: string;
@@ -30,7 +31,6 @@ export default function ChartEquityHero({
 }: ChartEquityHeroProps) {
   const pctClass = priceClass(changePercent);
   const quoteHref = `/quote/${market}/${symbol}`;
-
   return (
     <div className="inv-equity-hero">
       <div className="inv-equity-hero-main">
@@ -73,14 +73,13 @@ export default function ChartEquityHero({
       </div>
 
       {showTradeButtons && (
-        <div className="inv-equity-hero-trade">
-          <Link href={quoteHref} className="inv-equity-btn inv-equity-btn--buy">
-            매수
-          </Link>
-          <Link href={quoteHref} className="inv-equity-btn inv-equity-btn--sell">
-            매도
-          </Link>
-        </div>
+        <EquityTradeButtons
+          market={market}
+          symbol={symbol}
+          name={name}
+          price={price}
+          className="inv-equity-hero-trade"
+        />
       )}
     </div>
   );

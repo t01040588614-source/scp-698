@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { stockApi } from "@/lib/api";
 import { applyLiveToPortfolio } from "@/lib/liveQuoteMerge";
 import { useLiveSymbols } from "@/hooks/useLiveSymbols";
+import { pickWsQuote } from "@/lib/wsSymbolKey";
 import { formatPercent, formatPrice, priceClass } from "@/lib/format";
 import LoadingState from "@/components/common/LoadingState";
 import ErrorState from "@/components/common/ErrorState";
@@ -15,6 +16,8 @@ import LiveStreamBadge from "@/components/common/LiveStreamBadge";
 import LocalWatchlistPanel from "@/components/watchlist/LocalWatchlistPanel";
 import StockCompanyLogo from "@/components/market/StockCompanyLogo";
 import PriceAlertsPanel from "@/components/watchlist/PriceAlertsPanel";
+import FcmPushSetup from "@/components/watchlist/FcmPushSetup";
+import { buildLoginHref } from "@/lib/authNavigation";
 
 export default function WatchlistPanel() {
   const { isAuthenticated } = useAuth();
@@ -30,7 +33,7 @@ export default function WatchlistPanel() {
   const symbols = useMemo(() => items.map((i) => i.symbol), [items]);
   const { quotes, flash, isConnected } = useLiveSymbols(symbols);
   const liveItems = useMemo(
-    () => items.map((item) => applyLiveToPortfolio(item, quotes[item.symbol])),
+    () => items.map((item) => applyLiveToPortfolio(item, pickWsQuote(item.symbol, quotes))),
     [items, quotes]
   );
 
@@ -39,6 +42,7 @@ export default function WatchlistPanel() {
       <>
         <LocalWatchlistPanel />
         <PriceAlertsPanel />
+        <FcmPushSetup />
         <section className="panel">
           <div className="panel-header">
             <h2 className="panel-title">클라우드 관심목록</h2>
@@ -48,7 +52,7 @@ export default function WatchlistPanel() {
             description="로그인하면 포트폴리오·관심목록을 계정에 저장할 수 있습니다."
             actionLabel="로그인"
             onAction={() => {
-              window.location.href = "/login";
+              window.location.href = buildLoginHref("/watchlist");
             }}
           />
         </section>
@@ -143,6 +147,7 @@ export default function WatchlistPanel() {
           })
         )}
       </section>
+      <FcmPushSetup />
     </>
   );
 }

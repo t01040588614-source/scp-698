@@ -7,30 +7,18 @@ import { getStockKeyStats, type KeyStatsRow } from "@/services/chartApi";
 import type { ChartMarket } from "@/services/chartApi";
 import LoadingState from "@/components/common/LoadingState";
 import { formatCompactVolume } from "@/lib/format";
+import { buildSymbolTrendPrompt, openMarketAiChat } from "@/lib/marketAiChatEvents";
 
 type Props = {
   symbol: string;
   market: ChartMarket;
   /** WebSocket·캐시 당일 누적 거래량 (REST보다 최신) */
   liveVolume?: number;
+  /** 종목 상세 우측 — 단일 열 요약 */
+  sidebar?: boolean;
 };
 
-function StatCell({ row, quoteHref }: { row: KeyStatsRow; quoteHref: string }) {
-  if (row.kind === "locked") {
-    return (
-      <div className="inv-key-stats-row">
-        <span className="inv-key-stats-label">
-          {row.label}
-          {row.premium ? <sup className="inv-key-stats-pro">P</sup> : null}
-        </span>
-        <Link href={quoteHref} className="inv-key-stats-unlock" title="종목 상세에서 더 보기">
-          <span className="inv-key-stats-lock" aria-hidden />
-          더 보기
-        </Link>
-      </div>
-    );
-  }
-
+function StatCell({ row }: { row: KeyStatsRow }) {
   return (
     <div className="inv-key-stats-row">
       <span className="inv-key-stats-label">{row.label}</span>
@@ -39,7 +27,12 @@ function StatCell({ row, quoteHref }: { row: KeyStatsRow; quoteHref: string }) {
   );
 }
 
-export default function ChartMajorStatistics({ symbol, market, liveVolume }: Props) {
+export default function ChartMajorStatistics({
+  symbol,
+  market,
+  liveVolume,
+  sidebar = false,
+}: Props) {
   const [compactView, setCompactView] = useState(false);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["stockKeyStats", symbol, market],
@@ -49,8 +42,8 @@ export default function ChartMajorStatistics({ symbol, market, liveVolume }: Pro
 
   if (isLoading) {
     return (
-      <div className="inv-key-stats">
-        <LoadingState rows={3} />
+      <div className={sidebar ? "inv-widget inv-key-stats inv-key-stats--sidebar" : "inv-key-stats"}>
+        <LoadingState rows={sidebar ? 5 : 3} />
       </div>
     );
   }
@@ -69,6 +62,44 @@ export default function ChartMajorStatistics({ symbol, market, liveVolume }: Pro
   );
 
   const quoteHref = market === "korea" ? `/quote/korea/${symbol}` : `/quote/us/${symbol}`;
+  const flatRows = columns.flat();
+  const sidebarRows = (() => {
+    const filled = flatRows.filter((row) => row.value && row.value !== "-");
+    if (filled.length >= 6) return filled.slice(0, 14);
+    const labels = new Set(filled.map((r) => r.label));
+    const rest = flatRows.filter((row) => !labels.has(row.label));
+    return [...filled, ...rest].slice(0, 14);
+  })();
+
+  if (sidebar) {
+    return (
+      <section
+        className="inv-widget inv-key-stats inv-key-stats--sidebar"
+        aria-labelledby="inv-key-stats-sidebar-title"
+      >
+        <header className="inv-key-stats-head">
+          <div className="inv-key-stats-head-left">
+            <h3 id="inv-key-stats-sidebar-title" className="inv-widget-title inv-key-stats-title">
+              주요 통계 요약
+            </h3>
+          </div>
+          <Link href={quoteHref} className="inv-key-stats-more inv-key-stats-more--sidebar">
+            전체 보기
+          </Link>
+        </header>
+        <div className="inv-key-stats-grid">
+          <div className="inv-key-stats-col">
+            {sidebarRows.map((row, ri) => (
+              <StatCell key={`sb-${ri}-${row.label}`} row={row} />
+            ))}
+          </div>
+        </div>
+        <p className="inv-equity-quote-sidebar-stats-note">
+          값이 있는 항목 우선 · 왼쪽 「주요 통계」에서 전체 확인
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="inv-key-stats" aria-labelledby="inv-key-stats-title">
@@ -92,8 +123,14 @@ export default function ChartMajorStatistics({ symbol, market, liveVolume }: Pro
           <button
             type="button"
             className="inv-key-stats-ai"
+            aria-label={`AI ${symbol} 상승 혹은 하락 분석`}
             onClick={() => {
-              document.getElementById("chart")?.scrollIntoView({ behavior: "smooth" });
+              openMarketAiChat({
+                symbol,
+                market,
+                message: buildSymbolTrendPrompt(symbol),
+                autoSend: true,
+              });
             }}
           >
             <span className="inv-key-stats-ai-icon" aria-hidden>
@@ -111,7 +148,7 @@ export default function ChartMajorStatistics({ symbol, market, liveVolume }: Pro
         {columns.map((col, ci) => (
           <div key={ci} className="inv-key-stats-col">
             {(compactView ? col.slice(0, 4) : col).map((row, ri) => (
-              <StatCell key={`${ci}-${ri}-${row.label}`} row={row} quoteHref={quoteHref} />
+              <StatCell key={`${ci}-${ri}-${row.label}`} row={row} />
             ))}
           </div>
         ))}

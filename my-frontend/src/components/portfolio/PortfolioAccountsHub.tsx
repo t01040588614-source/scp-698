@@ -21,13 +21,11 @@ function PortfolioAccountsHubInner() {
   });
 
   return (
-    <section id="docx-accounts" className="inv-investing-panel panel inv-portfolio-accounts">
+    <section id="accounts" className="inv-investing-panel panel inv-portfolio-accounts">
       <div className="inv-portfolio-panel-head flex flex-wrap items-center justify-between gap-3 px-5 py-3">
         <div>
           <h2 className="text-base font-semibold">증권 계좌 (매매·현금 반영)</h2>
-          <p className="text-muted-sm mt-0.5">
-            PostgreSQL 계좌 API · ownerId <span className="tabular">{ownerId}</span>
-          </p>
+          <p className="text-muted-sm mt-0.5">매매·현금이 반영된 증권 계좌를 관리합니다.</p>
         </div>
         <Link
           href={`/accounts/new?ownerId=${encodeURIComponent(ownerId)}`}

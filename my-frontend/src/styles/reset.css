@@ -6,7 +6,8 @@
 
 html {
   min-width: 320px;
-  overflow-x: clip;
+  /* overflow-x: clip 은 표 position:sticky 를 viewport 기준으로 동작하지 못하게 함 */
+  overflow-x: auto;
   scroll-behavior: smooth;
 }
 

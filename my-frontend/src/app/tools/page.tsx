@@ -1,5 +1,7 @@
 import ToolsGrid from "@/components/tools/ToolsGrid";
+import ToolsHashScroll from "@/components/tools/ToolsHashScroll";
 import SystemStatusPanel from "@/components/tools/SystemStatusPanel";
+import QuoteRefreshSettingsPanel from "@/components/tools/QuoteRefreshSettingsPanel";
 import InvestingPageLayout from "@/components/layout/InvestingPageLayout";
 import { createPageMetadata } from "@/lib/seo";
 
@@ -21,7 +23,9 @@ export default function ToolsPage() {
       sidebar={{ showCalendar: false, showNews: true }}
     >
       <div className="tools-page-stack">
+        <ToolsHashScroll />
         <SystemStatusPanel />
+        <QuoteRefreshSettingsPanel />
         <ToolsGrid />
       </div>
     </InvestingPageLayout>

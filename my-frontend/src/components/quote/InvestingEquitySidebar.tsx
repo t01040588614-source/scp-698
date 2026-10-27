@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import StockCompanyLogo from "@/components/market/StockCompanyLogo";
 import { useQuery } from "@tanstack/react-query";
 import { stockApi } from "@/lib/api";
 import { formatPercent, formatPrice, priceClass } from "@/lib/format";
+import StockNameWithLogo from "@/components/market/StockNameWithLogo";
 
 type Props = {
   symbol: string;
@@ -30,47 +30,46 @@ export default function InvestingEquitySidebar({ symbol, market }: Props) {
   const movers = [...(list ?? [])]
     .filter((s) => s.symbol !== symbol)
     .sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent))
-    .slice(0, 7);
+    .slice(0, 6);
 
   const decimals = market === "korea" ? 0 : 2;
-  const qMarket = market;
 
   return (
-    <aside className="inv-equity-sidebar">
-      <section className="inv-equity-sidebar-block">
-        <h2 className="inv-equity-sidebar-title">트렌딩 주식</h2>
-        <table className="inv-equity-sidebar-table">
-          <thead>
-            <tr>
-              <th scope="col">종목명</th>
-              <th scope="col">최근</th>
-              <th scope="col">변동 %</th>
-            </tr>
-          </thead>
-          <tbody>
+    <>
+      <section className="inv-widget">
+        <header className="inv-widget-head">
+          <h3 className="inv-widget-title">지금 움직이는 종목</h3>
+          <Link href={market === "korea" ? "/korea" : "/us"} className="inv-widget-more">
+            더보기
+          </Link>
+        </header>
+        {movers.length === 0 ? (
+          <p className="inv-widget-empty">목록을 불러오는 중…</p>
+        ) : (
+          <ul className="inv-widget-list">
             {movers.map((row) => (
-              <tr key={row.symbol}>
-                <td>
-                  <Link href={`/quote/${qMarket}/${row.symbol}`} className="inv-equity-sidebar-link inv-name-link--with-logo">
-                    <StockCompanyLogo market={qMarket} symbol={row.symbol} name={row.name} size={20} />
-                    <span>{row.name}</span>
-                  </Link>
-                </td>
-                <td className="tabular">{formatPrice(row.price, decimals)}</td>
-                <td className={`tabular ${priceClass(row.changePercent)}`}>
-                  {formatPercent(row.changePercent)}
-                </td>
-              </tr>
+              <li key={row.symbol}>
+                <Link href={`/quote/${market}/${row.symbol}`} className="inv-widget-row">
+                  <StockNameWithLogo
+                    market={market}
+                    symbol={row.symbol}
+                    name={row.name}
+                    size={20}
+                    className="inv-widget-name inv-widget-name--with-logo"
+                    nameClassName="inv-widget-name-text"
+                  />
+                  <span className="inv-widget-right">
+                    <span className="tabular">{formatPrice(row.price, decimals)}</span>
+                    <span className={`tabular ${priceClass(row.changePercent)}`}>
+                      {formatPercent(row.changePercent)}
+                    </span>
+                  </span>
+                </Link>
+              </li>
             ))}
-          </tbody>
-        </table>
+          </ul>
+        )}
       </section>
-      <section className="inv-equity-sidebar-block">
-        <h2 className="inv-equity-sidebar-title">차트 허브</h2>
-        <Link href={`/charts?market=${market}&symbol=${symbol}`} className="inv-equity-sidebar-cta">
-          {symbol} 전체 차트 보기 →
-        </Link>
-      </section>
-    </aside>
+    </>
   );
 }

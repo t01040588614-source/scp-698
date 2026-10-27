@@ -16,9 +16,9 @@ import { patchTickFromLivePrice } from "@/lib/liveQuoteMerge";
 import {
   mergeTicksIntoMaps,
   normalizeWsIndex,
-  normalizeWsTick,
   type LiveStockTick,
 } from "@/lib/wsNormalize";
+import { wsLookupKeys } from "@/lib/wsSymbolKey";
 
 const RECONNECT_MS = 4000;
 
@@ -61,6 +61,7 @@ export function MarketWebSocketProvider({ children }: { children: ReactNode }) {
   const mergedRef = useRef<MarketStreamSubscription>({ symbols: [], indexIds: [] });
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const subscribeDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmounted = useRef(false);
 
   const sendSubscribe = useCallback((ws: WebSocket, payload: MarketStreamSubscription) => {
@@ -74,13 +75,21 @@ export function MarketWebSocketProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const flushSubscribe = useCallback(() => {
+  const flushSubscribeNow = useCallback(() => {
     mergedRef.current = unionSubscriptions(subsMap.current);
     const ws = wsRef.current;
     if (ws?.readyState === WebSocket.OPEN) {
       sendSubscribe(ws, mergedRef.current);
     }
   }, [sendSubscribe]);
+
+  const flushSubscribe = useCallback(() => {
+    if (subscribeDebounce.current) clearTimeout(subscribeDebounce.current);
+    subscribeDebounce.current = setTimeout(() => {
+      subscribeDebounce.current = null;
+      flushSubscribeNow();
+    }, 180);
+  }, [flushSubscribeNow]);
 
   const register = useCallback(
     (payload: MarketStreamSubscription) => {
@@ -104,12 +113,29 @@ export function MarketWebSocketProvider({ children }: { children: ReactNode }) {
 
     const connect = () => {
       if (unmounted.current) return;
+      if (reconnectTimer.current) {
+        clearTimeout(reconnectTimer.current);
+        reconnectTimer.current = null;
+      }
       try {
+        const prev = wsRef.current;
+        if (prev) {
+          prev.onclose = null;
+          prev.onerror = null;
+          prev.onmessage = null;
+          prev.onopen = null;
+          try {
+            prev.close();
+          } catch {
+            /* ignore */
+          }
+        }
+
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
-          if (unmounted.current) return;
+          if (unmounted.current || wsRef.current !== ws) return;
           setIsConnected(true);
           sendSubscribe(ws, mergedRef.current);
         };
@@ -118,46 +144,71 @@ export function MarketWebSocketProvider({ children }: { children: ReactNode }) {
           if (!Array.isArray(data)) return;
           const next: Record<string, LiveStockTick> = {};
           const pricePatch: Record<string, number> = {};
-          for (const raw of data as Record<string, unknown>[]) {
-            const tick = normalizeWsTick(raw);
-            if (tick) {
-              next[tick.symbol] = tick;
-              pricePatch[tick.symbol] = tick.price;
-            }
-          }
+          mergeTicksIntoMaps(data as Record<string, unknown>[], next, pricePatch);
           if (Object.keys(next).length === 0) return;
           setTicks((prev) => ({ ...prev, ...next }));
           setQuotes((prev) => ({ ...prev, ...pricePatch }));
         };
 
         ws.onmessage = (event) => {
+          if (wsRef.current !== ws) return;
           try {
             const message = JSON.parse(event.data) as {
               type?: string;
               data?: unknown;
+              symbol?: string;
+              price?: number;
             };
             if (message.type === "ticks") {
               applyTicksArray(message.data);
             }
+            if (message.type === "kis_tick" && message.symbol && message.price != null) {
+              const sym = String(message.symbol);
+              const price = Number(message.price);
+              if (Number.isFinite(price)) {
+                setQuotes((prev) => {
+                  const patch: Record<string, number> = {};
+                  for (const k of wsLookupKeys(sym)) patch[k] = price;
+                  return { ...prev, ...patch };
+                });
+                setTicks((prev) => {
+                  let next: Record<string, LiveStockTick> | null = null;
+                  for (const k of wsLookupKeys(sym)) {
+                    const patched = patchTickFromLivePrice(prev[k] ?? prev[sym], price);
+                    if (!patched) continue;
+                    patched.symbol = sym;
+                    if (!next) next = { ...prev };
+                    next[k] = patched;
+                  }
+                  return next ?? prev;
+                });
+              }
+            }
             if (message.type === "quotes" && message.data && typeof message.data === "object") {
               const pricePatch = message.data as Record<string, number>;
-              setQuotes((prev) => ({
-                ...prev,
-                ...pricePatch,
-              }));
+              setQuotes((prev) => {
+                const expanded: Record<string, number> = {};
+                for (const [sym, price] of Object.entries(pricePatch)) {
+                  if (!Number.isFinite(price)) continue;
+                  for (const k of wsLookupKeys(sym)) expanded[k] = price;
+                }
+                return { ...prev, ...expanded };
+              });
               setTicks((prev) => {
                 let next: Record<string, LiveStockTick> | null = null;
                 for (const [sym, price] of Object.entries(pricePatch)) {
                   if (!Number.isFinite(price)) continue;
-                  const patched = patchTickFromLivePrice(prev[sym], price);
-                  if (!patched) continue;
-                  patched.symbol = sym;
-                  const cur = (next ?? prev)[sym];
-                  if (cur?.price === patched.price && cur?.changePercent === patched.changePercent) {
-                    continue;
+                  for (const k of wsLookupKeys(sym)) {
+                    const patched = patchTickFromLivePrice(prev[k] ?? prev[sym], price);
+                    if (!patched) continue;
+                    patched.symbol = sym;
+                    const cur = (next ?? prev)[k];
+                    if (cur?.price === patched.price && cur?.changePercent === patched.changePercent) {
+                      continue;
+                    }
+                    if (!next) next = { ...prev };
+                    next[k] = patched;
                   }
-                  if (!next) next = { ...prev };
-                  next[sym] = patched;
                 }
                 return next ?? prev;
               });
@@ -185,6 +236,7 @@ export function MarketWebSocketProvider({ children }: { children: ReactNode }) {
         };
 
         ws.onclose = () => {
+          if (wsRef.current !== ws) return;
           setIsConnected(false);
           wsRef.current = null;
           if (!unmounted.current) {
@@ -193,6 +245,7 @@ export function MarketWebSocketProvider({ children }: { children: ReactNode }) {
         };
 
         ws.onerror = () => {
+          if (wsRef.current !== ws) return;
           setIsConnected(false);
         };
       } catch {
@@ -205,6 +258,7 @@ export function MarketWebSocketProvider({ children }: { children: ReactNode }) {
     return () => {
       unmounted.current = true;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      if (subscribeDebounce.current) clearTimeout(subscribeDebounce.current);
       wsRef.current?.close();
       wsRef.current = null;
     };

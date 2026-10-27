@@ -1071,6 +1071,25 @@
   padding-inline: var(--content-gutter, 12px);
 }
 
+.market-ticker--strip {
+  display: block;
+  padding: 0 0 4px;
+  overflow: visible;
+}
+
+.market-ticker--strip .inv-index-strip {
+  margin: 0 calc(-1 * var(--content-gutter, 12px));
+  padding-inline: var(--content-gutter, 12px);
+  border-bottom: none;
+  background: transparent;
+}
+
+.market-ticker--strip a.inv-index-strip-btn {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
 @media (max-width: 767px) {
   .chart-header {
     display: block;

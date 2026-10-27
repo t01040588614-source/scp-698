@@ -7,6 +7,8 @@ import { formatVolumeShort } from "@/lib/chartSeries";
 import InvestingEquityRangeBar from "@/components/quote/InvestingEquityRangeBar";
 import LiveStreamBadge from "@/components/common/LiveStreamBadge";
 import StockCompanyLogo from "@/components/market/StockCompanyLogo";
+import WatchlistStar from "@/components/market/WatchlistStar";
+import EquityTradeButtons from "@/components/quote/EquityTradeButtons";
 
 export type InvestingEquityInstrumentHeaderProps = {
   name: string;
@@ -28,6 +30,10 @@ export type InvestingEquityInstrumentHeaderProps = {
   week52Low?: number;
   week52High?: number;
   showTradeButtons?: boolean;
+  /** MarketLens 토스형 종목 상세 — 심플 헤더·뒤로가기 */
+  tossLayout?: boolean;
+  boardBackHref?: string;
+  boardBackLabel?: string;
 };
 
 export default function InvestingEquityInstrumentHeader({
@@ -50,9 +56,11 @@ export default function InvestingEquityInstrumentHeader({
   week52Low,
   week52High,
   showTradeButtons = true,
+  tossLayout = false,
+  boardBackHref,
+  boardBackLabel = "시장",
 }: InvestingEquityInstrumentHeaderProps) {
   const pctClass = priceClass(changePercent);
-  const quoteHref = `/quote/${market}/${symbol}`;
   const currency = market === "korea" ? "KRW" : "USD";
   const venue = market === "korea" ? "서울" : exchangeLabel ?? "US";
   const { bid, ask } = market === "korea" ? krxBidAsk(price) : { bid: price, ask: price };
@@ -65,24 +73,38 @@ export default function InvestingEquityInstrumentHeader({
     : null;
 
   return (
-    <header className="inv-equity-instrument">
+    <header
+      className={`inv-equity-instrument${tossLayout ? " inv-equity-instrument--toss" : ""}`}
+    >
+      {tossLayout && boardBackHref ? (
+        <Link href={boardBackHref} className="inv-equity-instrument-back">
+          ← {boardBackLabel}
+        </Link>
+      ) : null}
       <div className="inv-equity-instrument-top">
         <div className="inv-equity-instrument-identity">
           <h1 className="inv-equity-instrument-name inv-stock-name-with-logo">
-            <StockCompanyLogo market={market} symbol={symbol} name={name} size={40} />
+            <StockCompanyLogo market={market} symbol={symbol} name={name} size={tossLayout ? 36 : 40} />
             <span>{name}</span>
           </h1>
           <p className="inv-equity-instrument-venue">
-            {venue} · {currency} · 실시간
+            {exchangeLabel ?? venue} · {currency} · 실시간
             <LiveStreamBadge connected={isLive} className="inv-live-badge--inline" />
             {timeStr ? <span className="inv-equity-instrument-time tabular"> · {timeStr}</span> : null}
           </p>
         </div>
+        {tossLayout ? (
+          <div className="inv-equity-instrument-actions">
+            <WatchlistStar symbol={symbol} market={market} name={name} />
+          </div>
+        ) : null}
       </div>
 
       <div className="inv-equity-instrument-main">
         <div className="inv-equity-instrument-quote-block">
-          <div className="inv-equity-instrument-quote">
+          <div
+            className={`inv-equity-instrument-quote${tossLayout ? " inv-equity-instrument-quote--stack" : ""}`}
+          >
             <span
               className={`inv-equity-instrument-price tabular${priceFlash ? ` is-flash-${priceFlash}` : ""}`}
             >
@@ -93,22 +115,28 @@ export default function InvestingEquityInstrumentHeader({
             </span>
           </div>
 
-          <button
-            type="button"
-            className="inv-equity-hero-ai"
-            title="차트 구간 요약"
-            onClick={() => document.getElementById("chart")?.scrollIntoView({ behavior: "smooth" })}
-          >
-            <span className="inv-equity-hero-ai-icon" aria-hidden>
-              ✦
-            </span>
-            AI 차트 분석
-            <span className="inv-equity-hero-ai-info" title="베타">
-              ⓘ
-            </span>
-          </button>
+          {!tossLayout ? (
+            <button
+              type="button"
+              className="inv-equity-hero-ai"
+              title="차트 구간 요약"
+              onClick={() =>
+                document.getElementById("chart")?.scrollIntoView({ behavior: "smooth" })
+              }
+            >
+              <span className="inv-equity-hero-ai-icon" aria-hidden>
+                ✦
+              </span>
+              AI 차트 분석
+              <span className="inv-equity-hero-ai-info" title="베타">
+                ⓘ
+              </span>
+            </button>
+          ) : null}
 
-          <div className="inv-equity-instrument-ranges">
+          <div
+            className={`inv-equity-instrument-ranges${tossLayout ? " inv-equity-instrument-ranges--toss" : ""}`}
+          >
             <InvestingEquityRangeBar
               label="금일 변동"
               low={low}
@@ -131,12 +159,12 @@ export default function InvestingEquityInstrumentHeader({
             <p className="inv-equity-instrument-spread tabular">
               매수/매도 {formatPrice(bid, priceDecimals)} / {formatPrice(ask, priceDecimals)}
             </p>
-            <Link href={quoteHref} className="inv-equity-btn inv-equity-btn--buy">
-              매수
-            </Link>
-            <Link href={quoteHref} className="inv-equity-btn inv-equity-btn--sell">
-              매도
-            </Link>
+            <EquityTradeButtons
+              market={market}
+              symbol={symbol}
+              name={name}
+              price={price}
+            />
           </div>
         )}
       </div>

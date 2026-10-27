@@ -3,6 +3,7 @@ import type { MarketRow, TickerItem } from "@/data/mockData";
 import { mockTickerData } from "@/data/mockData";
 import { seedHubIndexQuote } from "@/lib/hubIndexSeeds";
 import { normalizeQuoteStatus } from "@/lib/format";
+import { mergeIndexStripWithWs, sortIndexStripItems } from "@/lib/indexStrip";
 
 function directionFromChange(change: number): "up" | "down" | "flat" {
   if (change > 0) return "up";
@@ -31,7 +32,7 @@ export function mapKoreaStockToMarketRow(stock: KoreaStock): MarketRow {
     volume: formatVolume(stock.volume),
     direction: directionFromChange(stock.change),
     status: "live",
-    updatedAt: new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }),
+    updatedAt: "—",
   };
 }
 
@@ -49,7 +50,7 @@ export function mapUSStockToMarketRow(stock: USStock): MarketRow {
     volume: formatVolume(stock.volume),
     direction: directionFromChange(stock.change),
     status: "live",
-    updatedAt: new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }),
+    updatedAt: "—",
   };
 }
 
@@ -135,28 +136,13 @@ export function usIndexStrip(): TickerItem[] {
 export function buildBoardIndexStripItems(
   market: "korea" | "us",
   apiItems: TickerItem[] | undefined,
-  wsIndices: MarketIndexQuote[]
+  wsIndices: MarketIndexQuote[],
+  streamConnected = false
 ): TickerItem[] {
   const fallback = market === "korea" ? koreaIndexStrip() : usIndexStrip();
-  const base = apiItems?.length ? apiItems : fallback;
-  if (!wsIndices.length) return base;
-
-  const merged = new Map(base.map((t) => [t.id, t]));
-  for (const i of wsIndices) {
-    merged.set(i.id, mapApiIndexToTicker(i));
-  }
-  const filtered = filterIndexTickers(
-    Array.from(merged.values()).map((t) => ({
-      id: t.id,
-      name: t.name,
-      price: t.price,
-      change: t.change,
-      changePercent: t.changeRate,
-      status: t.status,
-    })),
-    market
-  );
-  return filtered.length > 0 ? filtered : fallback;
+  const base = apiItems?.length ? sortIndexStripItems(apiItems) : fallback;
+  const merged = mergeIndexStripWithWs(base, wsIndices, streamConnected);
+  return merged.length > 0 ? merged : fallback;
 }
 
 export { KOREA_INDEX_IDS, US_INDEX_IDS };

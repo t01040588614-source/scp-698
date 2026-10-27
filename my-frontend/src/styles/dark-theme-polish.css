@@ -7,6 +7,10 @@
   border-bottom-color: var(--border-subtle);
 }
 
+[data-theme="dark"] .app-market-chrome-sticky {
+  --app-market-chrome-bg: var(--market-status-bg);
+}
+
 [data-theme="dark"] .market-ticker-bleed {
   background: var(--ticker-bleed-bg);
   border-bottom-color: var(--border-color);
@@ -27,7 +31,8 @@
   background: var(--surface-hover);
 }
 
-[data-theme="dark"] .inv-quick-links a:hover {
+[data-theme="dark"] .inv-quick-links a:hover,
+[data-theme="dark"] .inv-quick-links a.is-active {
   background: var(--surface-hover);
 }
 
@@ -36,9 +41,20 @@
   border-bottom-color: var(--border-subtle);
 }
 
-[data-theme="dark"] .inv-index-strip-item {
+[data-theme="dark"] a.inv-index-strip-btn {
   background: var(--surface-elevated);
   border-color: var(--border-color);
+}
+
+[data-theme="dark"] a.inv-index-strip-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--strip-tone, var(--border-strong));
+}
+
+[data-theme="dark"] .inv-index-strip-badge.is-live {
+  color: #5eead4;
+  background: rgb(13 148 136 / 18%);
+  border-color: rgb(45 212 191 / 35%);
 }
 
 [data-theme="dark"] .market-ticker::-webkit-scrollbar-track {
@@ -120,8 +136,8 @@
   color: var(--text-muted);
 }
 
-[data-theme="dark"] .inv-split-main .inv-table thead,
-[data-theme="dark"] .inv-table-wrap > .inv-table thead {
+[data-theme="dark"] .inv-split-main .inv-table-wrap > .inv-table thead th,
+[data-theme="dark"] .inv-table-wrap > .inv-table thead th {
   box-shadow: 0 1px 0 var(--border-strong);
 }
 
@@ -141,6 +157,64 @@
 
 [data-theme="dark"] .inv-session-pill {
   box-shadow: none;
+}
+
+[data-theme="dark"] .inv-session-pill--kr.inv-session-pill--open {
+  border-color: rgb(52 211 153 / 28%);
+  background: linear-gradient(180deg, rgb(52 211 153 / 10%) 0%, rgb(52 211 153 / 4%) 100%);
+}
+
+[data-theme="dark"] .inv-session-pill--us.inv-session-pill--closed,
+[data-theme="dark"] .inv-session-pill--us.inv-session-pill--after {
+  border-color: rgb(77 157 255 / 45%);
+  background: linear-gradient(180deg, rgb(77 157 255 / 18%) 0%, rgb(77 157 255 / 7%) 100%);
+}
+
+[data-theme="dark"] .inv-session-pill--us.inv-session-pill--closed strong,
+[data-theme="dark"] .inv-session-pill--us.inv-session-pill--after strong {
+  color: #bfdbfe;
+}
+
+[data-theme="dark"] .inv-session-pill--us.inv-session-pill--closed .inv-session-pill-label,
+[data-theme="dark"] .inv-session-pill--us.inv-session-pill--after .inv-session-pill-label {
+  color: #60a5fa;
+}
+
+[data-theme="light"] .inv-session-pill--kr.inv-session-pill--open {
+  border-color: #6ee7b7;
+  background: linear-gradient(180deg, #fff 0%, #ecfdf5 100%);
+}
+
+[data-theme="light"] .inv-session-pill--us.inv-session-pill--closed,
+[data-theme="light"] .inv-session-pill--us.inv-session-pill--after {
+  border-color: #60a5fa;
+  background: linear-gradient(180deg, #fff 0%, #dbeafe 100%);
+}
+
+[data-theme="light"] .inv-session-pill--us.inv-session-pill--closed strong,
+[data-theme="light"] .inv-session-pill--us.inv-session-pill--after strong {
+  color: #1d4ed8;
+}
+
+[data-theme="light"] .inv-session-pill--us.inv-session-pill--closed .inv-session-pill-label,
+[data-theme="light"] .inv-session-pill--us.inv-session-pill--after .inv-session-pill-label {
+  color: #2563eb;
+}
+
+[data-theme="light"] .inv-session-pill--kr.inv-session-pill--closed,
+[data-theme="light"] .inv-session-pill--kr.inv-session-pill--after {
+  border-color: #94a3b8;
+  background: linear-gradient(180deg, #fff 0%, #e2e8f0 100%);
+}
+
+[data-theme="light"] .inv-session-pill--kr.inv-session-pill--closed strong,
+[data-theme="light"] .inv-session-pill--kr.inv-session-pill--after strong {
+  color: #475569;
+}
+
+[data-theme="light"] .inv-session-pill--kr.inv-session-pill--closed .inv-session-pill-label,
+[data-theme="light"] .inv-session-pill--kr.inv-session-pill--after .inv-session-pill-label {
+  color: #64748b;
 }
 
 [data-theme="dark"] .panel,
@@ -188,6 +262,7 @@
 [data-theme="dark"] .inv-sidebar-index-price.is-flash-up,
 [data-theme="dark"] .inv-quote-price.is-flash-up,
 [data-theme="dark"] .inv-index-strip-price.is-flash-up,
+[data-theme="dark"] .inv-world-map-index-price.is-flash-up,
 [data-theme="dark"] .inv-widget-row .is-flash-up {
   animation: inv-price-flash-up-dark 0.65s ease;
 }
@@ -196,6 +271,7 @@
 [data-theme="dark"] .inv-sidebar-index-price.is-flash-down,
 [data-theme="dark"] .inv-quote-price.is-flash-down,
 [data-theme="dark"] .inv-index-strip-price.is-flash-down,
+[data-theme="dark"] .inv-world-map-index-price.is-flash-down,
 [data-theme="dark"] .inv-widget-row .is-flash-down {
   animation: inv-price-flash-down-dark 0.65s ease;
 }

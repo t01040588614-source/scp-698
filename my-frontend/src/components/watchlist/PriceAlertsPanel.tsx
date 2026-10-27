@@ -9,8 +9,9 @@ import {
   type PriceAlert,
   type PriceAlertDirection,
 } from "@/lib/priceAlerts";
-import { readLocalWatchlist } from "@/lib/localWatchlist";
+import { loadWatchlistForUi } from "@/lib/watchlistFacade";
 import { formatPrice } from "@/lib/format";
+import { pickWsQuote } from "@/lib/wsSymbolKey";
 import LiveStreamBadge from "@/components/common/LiveStreamBadge";
 import { useLiveSymbols } from "@/hooks/useLiveSymbols";
 import StockCompanyLogo from "@/components/market/StockCompanyLogo";
@@ -22,11 +23,11 @@ export default function PriceAlertsPanel() {
   const [target, setTarget] = useState("");
   const [direction, setDirection] = useState<PriceAlertDirection>("above");
 
-  const [watchlist, setWatchlist] = useState(readLocalWatchlist());
+  const [watchlist, setWatchlist] = useState<{ symbol: string; market: string; name: string }[]>([]);
 
   const sync = () => {
     setAlerts(readPriceAlerts());
-    setWatchlist(readLocalWatchlist());
+    void loadWatchlistForUi().then(setWatchlist);
   };
   useEffect(() => {
     sync();
@@ -149,7 +150,7 @@ export default function PriceAlertsPanel() {
       ) : (
         <ul className="price-alerts-list">
           {active.map((a) => {
-            const live = quotes[a.symbol];
+            const live = pickWsQuote(a.symbol, quotes);
             const decimals = a.market === "korea" ? 0 : 2;
             const hint =
               live != null

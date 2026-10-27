@@ -39,9 +39,15 @@ export default function SidebarAreaChart({
 
   const width = widthProp ?? measuredWidth;
 
-  const { linePath, areaPath, yLabels, xLabels } = useMemo(() => {
+  const { linePath, areaPath, yLabels, xLabels, lastPriceY } = useMemo(() => {
     if (closes.length < 2) {
-      return { linePath: "", areaPath: "", yLabels: [] as string[], xLabels: [] as string[] };
+      return {
+        linePath: "",
+        areaPath: "",
+        yLabels: [] as string[],
+        xLabels: [] as string[],
+        lastPriceY: null as number | null,
+      };
     }
 
     const min = Math.min(...closes);
@@ -72,7 +78,13 @@ export default function SidebarAreaChart({
       Boolean
     ) as string[];
 
-    return { linePath: line, areaPath: area, yLabels, xLabels };
+    return {
+      linePath: line,
+      areaPath: area,
+      yLabels,
+      xLabels,
+      lastPriceY: pts[pts.length - 1].y,
+    };
   }, [closes, times, width, height]);
 
   if (closes.length < 2) {
@@ -84,7 +96,8 @@ export default function SidebarAreaChart({
   }
 
   const stroke = positive ? "var(--market-up)" : "var(--market-down)";
-  const fill = positive ? "rgba(214, 64, 69, 0.12)" : "rgba(0, 107, 246, 0.12)";
+  const fill = positive ? "rgba(0, 180, 80, 0.14)" : "rgba(232, 64, 64, 0.14)";
+  const { left, right } = SIDEBAR_CHART_PAD;
 
   return (
     <div
@@ -115,6 +128,18 @@ export default function SidebarAreaChart({
           );
         })}
         <path d={areaPath} fill={fill} stroke="none" />
+        {lastPriceY != null && (
+          <line
+            x1={left}
+            x2={width - right}
+            y1={lastPriceY}
+            y2={lastPriceY}
+            stroke="var(--primary)"
+            strokeWidth={1}
+            strokeDasharray="4 3"
+            opacity={0.85}
+          />
+        )}
         <path d={linePath} fill="none" stroke={stroke} strokeWidth={1.75} vectorEffect="non-scaling-stroke" />
       </svg>
       <div className="inv-sidebar-chart-y" aria-hidden>

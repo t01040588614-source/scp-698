@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useClientLocaleTime } from "@/hooks/useClientLocaleTime";
 import { formatChange, formatPercent, formatPrice, priceClass } from "@/lib/format";
 import type { OhlcPoint } from "@/services/chartApi";
 import { ohlcPointsToLwcCandles } from "@/lib/lwcTime";
+import { clearLightweightChartsReloadFlag, loadLightweightCharts } from "@/lib/loadLightweightCharts";
 import { brand } from "@/config/brand";
 import { CHART_HEIGHT } from "@/config/chartLayout";
 import { LAYOUT_SYNC_EVENT } from "@/lib/layoutSync";
@@ -15,13 +16,15 @@ import {
   normalizeChartPeriod,
   type ChartHubPeriodId,
 } from "@/config/chartPeriods";
-import type { LwcCandle } from "@/lib/lwcTime";
+import { isLwcWhitespace, type LwcCandle, type LwcSeriesPoint } from "@/lib/lwcTime";
 import { buildChartMarkers, type ChartEventItem } from "@/lib/chartMarkers";
 import ChartIntradayToolbar from "@/components/chart/ChartIntradayToolbar";
 import ChartEventsLegend from "@/components/chart/ChartEventsLegend";
 import ChartStreamingLayout from "@/components/chart/ChartStreamingLayout";
+import EquityTradeButtons from "@/components/quote/EquityTradeButtons";
 import type { ChartStreamToolsBinding } from "@/components/chart/chartStreamToolsTypes";
 import {
+  chartLegendIntervalLabel,
   investingStreamIntervalLabel,
   investingStreamVenueTag,
   type IntradayIntervalId,
@@ -32,8 +35,24 @@ import {
   type DrawToolId,
   type PriceScaleModeId,
 } from "@/lib/chartDrawTools";
-import { padPointsToCalendarDays, summarizeFromPoints } from "@/lib/chartSeries";
-import { layoutTimeScaleFit } from "@/lib/chartTimeScaleFit";
+import { normalizeCalendarPeriodPoints, ohlcForChartLegend } from "@/lib/chartSeries";
+import {
+  chartDataIntervalForPeriod,
+  shouldUseOrdinalWeekMonthChart,
+} from "@/lib/indexChartUtils";
+import { syncIntradayForChartPeriod } from "@/lib/chartPeriodSelection";
+import {
+  chartFitBarCount,
+  isIntradayChartPeriod,
+  layoutTimeScaleFit,
+  resolveOrdinalMonthBarCenters,
+} from "@/lib/chartTimeScaleFit";
+import {
+  createChartTimeFormatters,
+  intradayChartShowSeconds,
+  isDenseOrdinalMonthAxis,
+} from "@/lib/chartTimeFormat";
+import ChartOrdinalMonthAxis from "@/components/chart/ChartOrdinalMonthAxis";
 import { addPriceAlert, inferDirection } from "@/lib/priceAlerts";
 import StockCompanyLogo from "@/components/market/StockCompanyLogo";
 
@@ -144,6 +163,8 @@ export type InvestingStyleChartProps = {
   streamingLayout?: boolean;
   /** 토스증권형 — 미니 툴바·워터마크 없음 */
   tossStream?: boolean;
+  /** 지수 상세 — 캔들+거래량 레이아웃(종목 equityPage와 분리) */
+  indexChart?: boolean;
   market?: "korea" | "us";
   venueLabel?: string;
 };
@@ -162,30 +183,42 @@ function readChartColors() {
   };
 }
 
-function businessDayKey(time: unknown): string | null {
-  if (typeof time === "string") return time.slice(0, 10);
-  if (typeof time === "number") return null;
-  if (time && typeof time === "object" && "year" in time) {
-    const t = time as { year: number; month: number; day: number };
-    return `${t.year}-${String(t.month).padStart(2, "0")}-${String(t.day).padStart(2, "0")}`;
-  }
-  return null;
-}
+type OhlcValues = { open: number; high: number; low: number; close: number };
 
-function ordinalDayLabelFromTime(
-  time: unknown,
-  candles: LwcCandle[],
-): string | null {
-  if (!candles.length) return null;
-  const key = businessDayKey(time);
-  let idx = -1;
-  if (key) {
-    idx = candles.findIndex((c) => String(c.time) === key);
-  } else if (typeof time === "number") {
-    idx = candles.findIndex((c) => c.time === time);
-  }
-  if (idx < 0) return null;
-  return `${idx + 1}일`;
+function ChartOhlcLegend({
+  ohlc,
+  priceDecimals,
+  className,
+}: {
+  ohlc: OhlcValues;
+  priceDecimals: number;
+  className?: string;
+}) {
+  const bullish = ohlc.close >= ohlc.open;
+  return (
+    <span className={className ?? "inv-investing-chart-ohlc"}>
+      <span className="inv-ohlc-item">
+        <span className="inv-ohlc-label">시</span>{" "}
+        <em className={bullish ? "inv-ohlc--up" : "inv-ohlc--down"}>
+          {formatPrice(ohlc.open, priceDecimals)}
+        </em>
+      </span>
+      <span className="inv-ohlc-item">
+        <span className="inv-ohlc-label">고</span>{" "}
+        <em className="inv-ohlc--up">{formatPrice(ohlc.high, priceDecimals)}</em>
+      </span>
+      <span className="inv-ohlc-item">
+        <span className="inv-ohlc-label">저</span>{" "}
+        <em className="inv-ohlc--down">{formatPrice(ohlc.low, priceDecimals)}</em>
+      </span>
+      <span className="inv-ohlc-item">
+        <span className="inv-ohlc-label">종</span>{" "}
+        <em className={bullish ? "inv-ohlc--up" : "inv-ohlc--down"}>
+          {formatPrice(ohlc.close, priceDecimals)}
+        </em>
+      </span>
+    </span>
+  );
 }
 
 export default function InvestingStyleChart({
@@ -221,10 +254,12 @@ export default function InvestingStyleChart({
   onIntradayIntervalChange,
   streamingLayout = false,
   tossStream = false,
+  indexChart = false,
   market = "korea",
   venueLabel,
 }: InvestingStyleChartProps) {
   const equityLayout = equityHub || equityPage;
+  const hubLayout = equityLayout || indexChart;
   const activePeriod = normalizeChartPeriod(period);
   const chartCanvasHeight = compact ? height - 8 : height;
   const stageBoxHeight = compact ? height + 28 : height;
@@ -264,7 +299,7 @@ export default function InvestingStyleChart({
   >(null);
   const lineSeriesRef = useRef<LineSeriesHandle | null>(null);
   const volumeSeriesRef = useRef<VolumeSeriesHandle | null>(null);
-  const lastCandlesRef = useRef<LwcCandle[]>([]);
+  const lastCandlesRef = useRef<LwcSeriesPoint[]>([]);
   const priceLineRef = useRef<PriceLineHandle | null>(null);
   const refLineRef = useRef<PriceLineHandle | null>(null);
   const [themeKey, setThemeKey] = useState("light");
@@ -278,7 +313,8 @@ export default function InvestingStyleChart({
   const [showGrid, setShowGrid] = useState(true);
   const [drawingsHidden, setDrawingsHidden] = useState(false);
   const [measureHint, setMeasureHint] = useState<string | null>(null);
-
+  const [chartLibError, setChartLibError] = useState<string | null>(null);
+  const [ordinalMonthCenters, setOrdinalMonthCenters] = useState<number[]>([]);
   useEffect(() => {
     setLocalChartType(chartTypeProp);
   }, [chartTypeProp]);
@@ -313,38 +349,27 @@ export default function InvestingStyleChart({
 
   const ohlc = useMemo(() => {
     if (!points.length) return null;
-    const summary = summarizeFromPoints(points);
-    if (!liveOhlc) {
-      return {
-        open: summary.open,
-        high: summary.high,
-        low: summary.low,
-        close: summary.close,
-      };
-    }
-    return {
-      open: summary.open,
-      high: Math.max(summary.high, liveOhlc.high, liveOhlc.close),
-      low: Math.min(summary.low, liveOhlc.low, liveOhlc.close),
-      close: liveOhlc.close,
-    };
+    if (liveOhlc) return liveOhlc;
+    return ohlcForChartLegend(points);
   }, [points, liveOhlc]);
 
-  const periodLabel = chartPeriodLabel(activePeriod);
+  const chartInterval = chartDataIntervalForPeriod(activePeriod, dataInterval);
 
   const chartPoints = useMemo(() => {
-    if (activePeriod === "1w") return padPointsToCalendarDays(points, 7);
-    if (activePeriod === "1m") return padPointsToCalendarDays(points, 31);
-    return points;
-  }, [points, activePeriod]);
+    return normalizeCalendarPeriodPoints(points, activePeriod, dataInterval);
+  }, [points, activePeriod, dataInterval]);
 
   const displayTitle = useMemo(() => {
     const name =
       subtitle && subtitle !== symbolLabel
         ? `${symbolLabel}, ${subtitle}`
         : subtitle || symbolLabel;
-    return `${name}, ${periodLabel}`;
-  }, [symbolLabel, subtitle, periodLabel]);
+    const intervalLabel = chartLegendIntervalLabel(activePeriod, {
+      dataInterval,
+      intradayInterval,
+    });
+    return `${name}, ${intervalLabel}`;
+  }, [symbolLabel, subtitle, activePeriod, dataInterval, intradayInterval]);
 
   const seriesKey = useMemo(() => {
     if (chartPoints.length < 2) return "";
@@ -355,12 +380,22 @@ export default function InvestingStyleChart({
 
   const chartSeries = useMemo(() => {
     if (!seriesKey) return null;
-    const candles = ohlcPointsToLwcCandles(chartPoints, activePeriod, dataInterval);
+    const candles = ohlcPointsToLwcCandles(chartPoints, activePeriod, chartInterval);
     return { candles, pointsSnapshot: chartPoints };
-  }, [seriesKey, chartPoints, activePeriod, dataInterval]);
+  }, [seriesKey, chartPoints, activePeriod, chartInterval]);
+
+  const useOrdinalDayAxis = useMemo(() => {
+    if (!chartSeries || chartPoints.length < 2) return false;
+    return shouldUseOrdinalWeekMonthChart(activePeriod, chartInterval, chartPoints);
+  }, [chartSeries, activePeriod, chartInterval, chartPoints]);
+
+  const denseOrdinalMonthAxis = isDenseOrdinalMonthAxis(activePeriod, useOrdinalDayAxis);
 
   const pickPeriod = (id: ChartHubPeriodId) => {
     onPeriodChange(id);
+    if (onIntradayIntervalChange) {
+      syncIntradayForChartPeriod(id, onIntradayIntervalChange);
+    }
   };
 
   const showVolumePane = showVolume && volumeOn && chartSeries != null;
@@ -406,7 +441,8 @@ export default function InvestingStyleChart({
 
   const seriesMarkers = useMemo(() => {
     if (!chartSeries?.candles.length) return [];
-    return buildChartMarkers(chartSeries.candles, chartEvents);
+    const tradeBars = chartSeries.candles.filter((c): c is LwcCandle => !isLwcWhitespace(c));
+    return buildChartMarkers(tradeBars, chartEvents);
   }, [chartSeries, chartEvents]);
 
   const showIntraday =
@@ -423,6 +459,7 @@ export default function InvestingStyleChart({
     if (!chartSeries) {
       containerRef.current.replaceChildren();
       chartApiRef.current = null;
+      setOrdinalMonthCenters([]);
       return;
     }
     const { candles, pointsSnapshot } = chartSeries;
@@ -431,16 +468,25 @@ export default function InvestingStyleChart({
     let disposed = false;
     let chart: { remove: () => void } | null = null;
     let resizeObserver: ResizeObserver | null = null;
+    setChartLibError(null);
 
-    void import("lightweight-charts").then(({ createChart, ColorType }) => {
+    void loadLightweightCharts()
+      .then(({ createChart, ColorType }) => {
       if (disposed || !containerRef.current) return;
+      clearLightweightChartsReloadFlag();
       const el = containerRef.current;
       el.replaceChildren();
       const colors = readChartColors();
       lastCandlesRef.current = candles;
 
-      const useOrdinalDayAxis = activePeriod === "1w" || activePeriod === "1m";
-
+      const chartTimeFormat = createChartTimeFormatters({
+        market,
+        period: activePeriod,
+        dataInterval: chartInterval,
+        useOrdinalDayAxis,
+        candles,
+        pointsSnapshot,
+      });
       const canvasHeight = compact ? height - 8 : height;
       const lockInteraction = compact;
 
@@ -469,6 +515,8 @@ export default function InvestingStyleChart({
           fontSize: 11,
         },
         localization: {
+          locale: "ko-KR",
+          dateFormat: "yyyy-MM-dd",
           ...(equityPage
             ? {
                 priceFormatter: (p: number) => {
@@ -478,15 +526,10 @@ export default function InvestingStyleChart({
                 },
               }
             : {}),
-          ...(useOrdinalDayAxis
-            ? {
-                timeFormatter: (time: unknown) =>
-                  ordinalDayLabelFromTime(time, candles) ?? "",
-              }
-            : {}),
+          timeFormatter: chartTimeFormat.timeFormatter,
         },
         grid: {
-          vertLines: { color: colors.grid, visible: showGrid && (equityLayout || !compact) },
+          vertLines: { color: colors.grid, visible: showGrid },
           horzLines: { color: colors.grid, visible: showGrid },
         },
         rightPriceScale: {
@@ -494,8 +537,8 @@ export default function InvestingStyleChart({
           scaleMargins: {
             top: compact ? 0.14 : 0.08,
             bottom: showVolumePane
-              ? equityLayout
-                ? 0.24
+              ? hubLayout
+                ? 0.26
                 : 0.2
               : compact
                 ? 0.12
@@ -504,22 +547,29 @@ export default function InvestingStyleChart({
         },
         timeScale: {
           borderColor: colors.border,
-          timeVisible: useOrdinalDayAxis || !compact,
-          secondsVisible: false,
-          ...(useOrdinalDayAxis
-            ? {
-                tickMarkFormatter: (time: unknown) =>
-                  ordinalDayLabelFromTime(time, candles) ?? "",
-              }
-            : {}),
+          timeVisible:
+            !compact ||
+            useOrdinalDayAxis ||
+            isIntradayChartPeriod(activePeriod, chartInterval),
+          secondsVisible: intradayChartShowSeconds(chartInterval),
+          tickMarkMaxCharacterLength:
+            chartTimeFormat.mode === "daily" ? 16 : chartTimeFormat.mode === "intraday" ? 18 : 12,
+          tickMarkFormatter: chartTimeFormat.tickMarkFormatter,
         },
         crosshair: {
-          vertLine: { color: colors.primary, width: 1, style: 2, labelBackgroundColor: colors.primary },
+          vertLine: {
+            color: colors.primary,
+            width: 1,
+            style: 2,
+            labelBackgroundColor: colors.primary,
+            labelVisible: false,
+          },
           horzLine: { color: colors.primary, width: 1, style: 2, labelBackgroundColor: colors.primary },
         },
       });
       chart = c;
       chartApiRef.current = c as unknown as LwcChartApi;
+
       candleSeriesRef.current = null;
       areaSeriesRef.current = null;
       lineSeriesRef.current = null;
@@ -527,10 +577,11 @@ export default function InvestingStyleChart({
       priceLineRef.current = null;
       refLineRef.current = null;
 
-      const lineData = candles.map((d) => ({ time: d.time, value: d.close }));
+      const tradeCandles = candles.filter((d): d is LwcCandle => !isLwcWhitespace(d));
+      const lineData = tradeCandles.map((d) => ({ time: d.time, value: d.close }));
       const areaLine = colors.primary;
-      const areaTop = equityLayout ? `${colors.primary}52` : `${colors.primary}55`;
-      const areaBottom = equityLayout ? `${colors.primary}08` : `${colors.primary}08`;
+      const areaTop = equityLayout ? `${colors.primary}55` : `${colors.primary}66`;
+      const areaBottom = equityLayout ? `${colors.primary}06` : `${colors.primary}04`;
 
       if (chartType === "candle") {
         const series = c.addCandlestickSeries({
@@ -551,6 +602,9 @@ export default function InvestingStyleChart({
           topColor: areaTop,
           bottomColor: areaBottom,
           lineWidth: 2,
+          lastValueVisible: true,
+          priceLineVisible: false,
+          crosshairMarkerVisible: true,
         });
         series.setData(lineData as Parameters<typeof series.setData>[0]);
         areaSeriesRef.current = series as unknown as AreaSeriesHandle & {
@@ -572,22 +626,26 @@ export default function InvestingStyleChart({
           priceScaleId: "",
         });
         vol.priceScale().applyOptions({
-          scaleMargins: { top: equityLayout ? 0.8 : 0.76, bottom: 0 },
+          scaleMargins: { top: hubLayout ? 0.78 : 0.76, bottom: 0 },
         });
-        const volAlpha = equityLayout ? "cc" : "99";
+        const volAlpha = hubLayout ? "bb" : "99";
         vol.setData(
           candles.map((bar, idx) => {
+            if (isLwcWhitespace(bar)) {
+              return { time: bar.time, value: 0, color: `${colors.text}22` };
+            }
+            const tradeBar: LwcCandle = bar;
             const pt = pointsSnapshot[idx];
             const volVal =
               pt?.volume ??
               pointsSnapshot.find((p) => {
                 const t = p.timestamp ? Math.floor(Date.parse(p.timestamp) / 1000) : p.time;
-                return String(t) === String(bar.time) || p.time === String(bar.time);
+                return String(t) === String(tradeBar.time) || p.time === String(tradeBar.time);
               })?.volume ??
               0;
-            const up = bar.close >= bar.open;
+            const up = tradeBar.close >= tradeBar.open;
             return {
-              time: bar.time,
+              time: tradeBar.time,
               value: volVal,
               color: up ? `${colors.up}${volAlpha}` : `${colors.down}${volAlpha}`,
             };
@@ -596,8 +654,8 @@ export default function InvestingStyleChart({
         volumeSeriesRef.current = vol as unknown as VolumeSeriesHandle;
       }
 
-      if (showSma20 && candles.length > 20) {
-        const smaData = computeSma20(candles);
+      if (showSma20 && tradeCandles.length > 20) {
+        const smaData = computeSma20(tradeCandles);
         const sma = c.addLineSeries({
           color: "#f57c00",
           lineWidth: 1,
@@ -618,21 +676,42 @@ export default function InvestingStyleChart({
         markerTarget.setMarkers([]);
       }
 
-      layoutTimeScaleFit(c as unknown as LwcChartApi, el.clientWidth, candles.length, compact, {
-        period: activePeriod,
-        dataInterval,
-      });
+      const fitOrdinalMonthAxis = (chartApi: LwcChartApi, width: number, bars: number) => {
+        layoutTimeScaleFit(chartApi, width, chartFitBarCount(activePeriod, bars), compact, {
+          period: activePeriod,
+          dataInterval: chartInterval,
+        });
+        if (!denseOrdinalMonthAxis) return;
+        const centers = resolveOrdinalMonthBarCenters(chartApi, width, compact);
+        if (!disposed) setOrdinalMonthCenters(centers);
+        chartApi.timeScale().applyOptions({ visible: false, borderVisible: false });
+      };
+
+      fitOrdinalMonthAxis(c as unknown as LwcChartApi, el.clientWidth, candles.length);
       syncUserDrawnLines();
 
       resizeObserver = new ResizeObserver(() => {
-        if (!containerRef.current || !chartApiRef.current) return;
-        chartApiRef.current.applyOptions({ width: containerRef.current.clientWidth });
+        if (!containerRef.current || !chartApiRef.current || disposed) return;
+        const w = containerRef.current.clientWidth;
+        chartApiRef.current.applyOptions({ width: w });
+        fitOrdinalMonthAxis(
+          chartApiRef.current,
+          w,
+          lastCandlesRef.current.length,
+        );
       });
       resizeObserver.observe(el);
-    });
+    })
+      .catch((err: unknown) => {
+        if (disposed) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setChartLibError(msg.includes("Chunk") ? "차트 파일(청크) 로드 실패 — stop-dev 후 start.bat으로 재시작" : msg);
+      });
 
     return () => {
       disposed = true;
+      setOrdinalMonthCenters([]);
+      const chartApi = chart as { remove: () => void } | null;
       resizeObserver?.disconnect();
       resizeObserver = null;
       chartApiRef.current = null;
@@ -644,7 +723,7 @@ export default function InvestingStyleChart({
       lastCandlesRef.current = [];
       priceLineRef.current = null;
       refLineRef.current = null;
-      chart?.remove();
+      chartApi?.remove();
       containerEl.replaceChildren();
     };
   }, [
@@ -656,12 +735,17 @@ export default function InvestingStyleChart({
     themeKey,
     equityLayout,
     equityPage,
+    indexChart,
+    hubLayout,
     seriesMarkers,
     showGrid,
     showSma20,
     syncUserDrawnLines,
     activePeriod,
-    dataInterval,
+    chartInterval,
+    market,
+    useOrdinalDayAxis,
+    denseOrdinalMonthAxis,
   ]);
 
   useEffect(() => {
@@ -673,30 +757,34 @@ export default function InvestingStyleChart({
 
   useEffect(() => {
     if (!enableLiveTail || !liveOhlc || lastCandlesRef.current.length === 0) return;
-    const last = lastCandlesRef.current[lastCandlesRef.current.length - 1];
+    const lastPoint = lastCandlesRef.current[lastCandlesRef.current.length - 1];
+    if (isLwcWhitespace(lastPoint)) return;
+    const lastBar: LwcCandle = lastPoint;
     const nextBar: LwcCandle = {
-      ...last,
+      ...lastBar,
       close: liveOhlc.close,
-      high: Math.max(last.high, liveOhlc.high, liveOhlc.close),
-      low: Math.min(last.low, liveOhlc.low, liveOhlc.close),
+      high: Math.max(lastBar.high, liveOhlc.close),
+      low: Math.min(lastBar.low, liveOhlc.close),
     };
     lastCandlesRef.current = [...lastCandlesRef.current.slice(0, -1), nextBar];
     if (chartType === "candle" && candleSeriesRef.current) {
       candleSeriesRef.current.update(nextBar);
+    } else if (chartType === "area" && areaSeriesRef.current) {
+      areaSeriesRef.current.update({ time: lastBar.time, value: liveOhlc.close });
     } else if (lineSeriesRef.current) {
-      lineSeriesRef.current.update({ time: last.time, value: liveOhlc.close });
+      lineSeriesRef.current.update({ time: lastBar.time, value: liveOhlc.close });
     }
     if (liveVolume != null && liveVolume > 0 && volumeSeriesRef.current) {
       const colors = readChartColors();
       const up = nextBar.close >= nextBar.open;
-      const volAlpha = equityLayout ? "38" : "55";
+      const volAlpha = hubLayout ? "38" : "55";
       volumeSeriesRef.current.update({
-        time: last.time,
+        time: lastBar.time,
         value: liveVolume,
         color: up ? `${colors.up}${volAlpha}` : `${colors.down}${volAlpha}`,
       });
     }
-  }, [liveOhlc, liveVolume, chartType, enableLiveTail, equityLayout]);
+  }, [liveOhlc, liveVolume, chartType, enableLiveTail, hubLayout]);
 
   useEffect(() => {
     const series =
@@ -704,7 +792,9 @@ export default function InvestingStyleChart({
         ? candleSeriesRef.current
         : chartType === "area"
           ? areaSeriesRef.current
-          : null;
+          : chartType === "line"
+            ? (lineSeriesRef.current as unknown as AreaSeriesHandle)
+            : null;
     if (!series) return;
 
     if (priceLineRef.current) {
@@ -735,9 +825,37 @@ export default function InvestingStyleChart({
       });
     }
 
-    if (baselinePrice != null && baselinePrice > 0 && (equityLayout || chartType === "area")) {
+    if (ohlc && chartType === "area") {
+      priceLineRef.current = series.createPriceLine({
+        price: ohlc.close,
+        color: colors.primary,
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: "",
+      });
+    }
+
+    if (ohlc && chartType === "line") {
+      priceLineRef.current = series.createPriceLine({
+        price: ohlc.close,
+        color: colors.primary,
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: "",
+      });
+    }
+
+    const showBaselineRef =
+      baselinePrice != null &&
+      baselinePrice > 0 &&
+      ohlc != null &&
+      Math.abs(baselinePrice - ohlc.close) / Math.max(ohlc.close, 1) > 0.00005;
+
+    if (showBaselineRef && (equityLayout || indexChart || chartType === "area")) {
       refLineRef.current = series.createPriceLine({
-        price: baselinePrice,
+        price: baselinePrice!,
         color: colors.text,
         lineWidth: 1,
         lineStyle: 2,
@@ -745,7 +863,7 @@ export default function InvestingStyleChart({
         title: "",
       });
     }
-  }, [ohlc, chartType, equityHub, equityPage, equityLayout, baselinePrice, streamingLayout]);
+  }, [ohlc, chartType, equityHub, equityPage, equityLayout, indexChart, baselinePrice, streamingLayout]);
 
   useEffect(() => {
     syncUserDrawnLines();
@@ -754,7 +872,7 @@ export default function InvestingStyleChart({
   useEffect(() => {
     const chart = chartApiRef.current;
     if (!chart) return;
-    void import("lightweight-charts").then(({ PriceScaleMode }) => {
+    void loadLightweightCharts().then(({ PriceScaleMode }) => {
       const mode =
         priceScaleMode === "log"
           ? PriceScaleMode.Logarithmic
@@ -768,7 +886,7 @@ export default function InvestingStyleChart({
   useEffect(() => {
     const chart = chartApiRef.current;
     if (!chart) return;
-    void import("lightweight-charts").then(({ CrosshairMode }) => {
+    void loadLightweightCharts().then(({ CrosshairMode }) => {
       const mode =
         activeDrawTool === "magnet"
           ? CrosshairMode.Magnet
@@ -838,10 +956,16 @@ export default function InvestingStyleChart({
         const chart = chartApiRef.current;
         const el = containerRef.current;
         if (chart && el && lastCandlesRef.current.length) {
-          layoutTimeScaleFit(chart, el.clientWidth, lastCandlesRef.current.length, compact, {
-            period: activePeriod,
-            dataInterval,
-          });
+          layoutTimeScaleFit(
+            chart,
+            el.clientWidth,
+            chartFitBarCount(activePeriod, lastCandlesRef.current.length),
+            compact,
+            {
+              period: activePeriod,
+              dataInterval: chartInterval,
+            },
+          );
         }
       }
       if (id === "visibility") {
@@ -858,7 +982,7 @@ export default function InvestingStyleChart({
         setMeasureHint(null);
       }
     },
-    [compact, setChartType, syncUserDrawnLines, activePeriod, dataInterval]
+    [compact, setChartType, syncUserDrawnLines, activePeriod, chartInterval]
   );
 
   const streamTools: ChartStreamToolsBinding = useMemo(
@@ -904,10 +1028,16 @@ export default function InvestingStyleChart({
         const chart = chartApiRef.current;
         const el = containerRef.current;
         if (chart && el && lastCandlesRef.current.length) {
-          layoutTimeScaleFit(chart, el.clientWidth, lastCandlesRef.current.length, compact, {
-            period: activePeriod,
-            dataInterval,
-          });
+          layoutTimeScaleFit(
+            chart,
+            el.clientWidth,
+            chartFitBarCount(activePeriod, lastCandlesRef.current.length),
+            compact,
+            {
+              period: activePeriod,
+              dataInterval: chartInterval,
+            },
+          );
         }
       },
       onFullscreen: () => {
@@ -1019,11 +1149,11 @@ export default function InvestingStyleChart({
       priceDecimals,
       activePeriod,
       subtitle,
-      dataInterval,
+      chartInterval,
     ]
   );
 
-  const clock = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const clock = useClientLocaleTime("hms") ?? "—";
 
   const venueTag = investingStreamVenueTag(market, venueLabel);
   const intervalLegend = investingStreamIntervalLabel(intradayInterval, activePeriod);
@@ -1041,30 +1171,40 @@ export default function InvestingStyleChart({
         <span className="inv-stream-legend-title">
           {streamLegendTitle}
         </span>
-        <span className="inv-stream-legend-ohlc">
-          <span>
-            시 <em>{formatPrice(ohlc.open, priceDecimals)}</em>
-          </span>
-          <span>
-            고 <em>{formatPrice(ohlc.high, priceDecimals)}</em>
-          </span>
-          <span>
-            저 <em>{formatPrice(ohlc.low, priceDecimals)}</em>
-          </span>
-          <span>
-            종 <em>{formatPrice(ohlc.close, priceDecimals)}</em>
-          </span>
-        </span>
+        <ChartOhlcLegend ohlc={ohlc} priceDecimals={priceDecimals} className="inv-stream-legend-ohlc" />
       </div>
     ) : null;
 
   const stageContent = (
     <>
       {loading && <div className="inv-investing-chart-loading">차트 불러오는 중…</div>}
-      {!loading && points.length < 2 && (
+      {!loading && chartPoints.length < 2 && (
         <div className="inv-investing-chart-empty">표시할 차트 데이터가 없습니다.</div>
       )}
-      <div ref={containerRef} className="inv-investing-chart-canvas" style={canvasStyle} />
+      {chartLibError ? (
+        <div className="inv-investing-chart-empty" role="alert">
+          {chartLibError}{" "}
+          <button type="button" className="link-accent" onClick={() => window.location.reload()}>
+            새로고침
+          </button>
+        </div>
+      ) : (
+        <div
+          className={
+            denseOrdinalMonthAxis
+              ? "inv-investing-chart-canvas-wrap inv-investing-chart-canvas-wrap--ordinal-month"
+              : "inv-investing-chart-canvas-wrap"
+          }
+        >
+          <div ref={containerRef} className="inv-investing-chart-canvas" style={canvasStyle} />
+          {denseOrdinalMonthAxis ? (
+            <ChartOrdinalMonthAxis
+              centers={ordinalMonthCenters}
+              dayLabels={chartPoints.map((p) => p.time)}
+            />
+          ) : null}
+        </div>
+      )}
       {streamingLayout && !tossStream ? (
         <span className="inv-investing-chart-watermark">investing.com</span>
       ) : (
@@ -1095,6 +1235,7 @@ export default function InvestingStyleChart({
           legend={streamLegend}
           tools={streamTools}
           streamVariant={tossStream ? "toss" : "investing"}
+          hideFooterRanges={equityPage}
         >
           <div className="inv-investing-chart-stage inv-investing-chart-stage--stream" style={stageStyle}>
             {stageContent}
@@ -1208,20 +1349,7 @@ export default function InvestingStyleChart({
         {ohlc && !equityHub && !(compact && loading) && (
           <div className={`inv-investing-chart-legend${compact ? " inv-investing-chart-legend--compact" : ""}`}>
             <span className="inv-investing-chart-legend-title">{displayTitle}</span>
-            <span className="inv-investing-chart-ohlc">
-              <span>
-                시 <em>{formatPrice(ohlc.open, priceDecimals)}</em>
-              </span>
-              <span>
-                고 <em>{formatPrice(ohlc.high, priceDecimals)}</em>
-              </span>
-              <span>
-                저 <em>{formatPrice(ohlc.low, priceDecimals)}</em>
-              </span>
-              <span>
-                종 <em>{formatPrice(ohlc.close, priceDecimals)}</em>
-              </span>
-            </span>
+            <ChartOhlcLegend ohlc={ohlc} priceDecimals={priceDecimals} />
           </div>
         )}
         {overlayQuote && (
@@ -1252,36 +1380,19 @@ export default function InvestingStyleChart({
                 </span>
               </div>
             </div>
-            <div className="inv-chart-card-header-trade">
-              <Link
-                href={`/quote/${overlayQuote.market}/${symbolLabel}`}
-                className="inv-equity-btn inv-equity-btn--buy inv-equity-btn--sm"
-              >
-                매수
-              </Link>
-              <Link
-                href={`/quote/${overlayQuote.market}/${symbolLabel}`}
-                className="inv-equity-btn inv-equity-btn--sell inv-equity-btn--sm"
-              >
-                매도
-              </Link>
-            </div>
+            <EquityTradeButtons
+              market={overlayQuote.market}
+              symbol={symbolLabel}
+              name={overlayQuote.name}
+              price={overlayQuote.price}
+              size="sm"
+              className="inv-chart-card-header-trade"
+            />
           </div>
         )}
         {ohlc && equityHub && !equityPage && (
           <div className="inv-investing-chart-ohlc-strip">
-            <span>
-              시 <em>{formatPrice(ohlc.open, priceDecimals)}</em>
-            </span>
-            <span>
-              고 <em>{formatPrice(ohlc.high, priceDecimals)}</em>
-            </span>
-            <span>
-              저 <em>{formatPrice(ohlc.low, priceDecimals)}</em>
-            </span>
-            <span>
-              종 <em>{formatPrice(ohlc.close, priceDecimals)}</em>
-            </span>
+            <ChartOhlcLegend ohlc={ohlc} priceDecimals={priceDecimals} />
           </div>
         )}
         {stageContent}

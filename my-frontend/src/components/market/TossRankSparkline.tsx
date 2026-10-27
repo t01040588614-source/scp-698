@@ -10,20 +10,28 @@ type Props = {
   livePrice?: number;
   positive: boolean;
   enabled?: boolean;
+  /** 순위 패널 — 최근 31일 일봉 스파크 */
+  period?: "1d" | "1m";
 };
 
 const SPARK_W = 64;
 const SPARK_H = 28;
 
-export default function TossRankSparkline({ symbol, livePrice, positive, enabled = true }: Props) {
+export default function TossRankSparkline({
+  symbol,
+  livePrice,
+  positive,
+  enabled = true,
+  period = "1m",
+}: Props) {
   const { data, isLoading } = useQuery({
-    queryKey: ["toss-spark", symbol],
+    queryKey: ["toss-spark", symbol, period],
     queryFn: () =>
       getStockHistory({
         symbol,
         market: "korea",
-        period: "1d",
-        interval: "5m",
+        period,
+        interval: period === "1d" ? "5m" : undefined,
       }),
     staleTime: 45_000,
     refetchInterval: 60_000,

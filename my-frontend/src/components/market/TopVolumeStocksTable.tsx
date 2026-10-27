@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import StockNameWithLogo from "@/components/market/StockNameWithLogo";
+import { useClientLocaleTime } from "@/hooks/useClientLocaleTime";
 import { useLiveSymbols } from "@/hooks/useLiveSymbols";
+import { wsLiveInputsForSymbol } from "@/lib/equityQuotes";
 import { mergeLiveStockQuote } from "@/lib/liveQuoteMerge";
 import type { KoreaStock, USStock } from "@/types/stock";
 import { directionSymbol, formatPercent, formatPrice, priceClass } from "@/lib/format";
@@ -31,6 +33,7 @@ export default function TopVolumeStocksTable({
   const rows = [...stocks].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0)).slice(0, limit);
   const symbols = rows.map((r) => r.symbol);
   const { quotes, ticks } = useLiveSymbols(symbols);
+  const hubTime = useClientLocaleTime("hm") ?? "—";
 
   if (!rows.length) return null;
 
@@ -60,6 +63,7 @@ export default function TopVolumeStocksTable({
           <tbody>
             {rows.map((row) => {
               const sym = row.symbol;
+              const { livePrice, tick } = wsLiveInputsForSymbol(sym, quotes, ticks);
               const merged = mergeLiveStockQuote(
                 {
                   price: row.price,
@@ -68,13 +72,9 @@ export default function TopVolumeStocksTable({
                   previousClose: row.previousClose,
                   volume: row.volume,
                 },
-                quotes[sym],
-                ticks[sym]
+                livePrice,
+                tick
               );
-              const time = new Date().toLocaleTimeString("ko-KR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
               return (
                 <tr key={sym}>
                   <td className="inv-col-name">
@@ -91,7 +91,7 @@ export default function TopVolumeStocksTable({
                   <td className="tabular">{formatVol(merged.volume)}</td>
                   <td className="tabular inv-hide-sm inv-hub-time">
                     <span className="inv-hub-clock" aria-hidden />
-                    {time}
+                    {hubTime}
                   </td>
                 </tr>
               );

@@ -1,4 +1,5 @@
 import type { MarketIndexQuote } from "@/types/stock";
+import { wsLookupKeys } from "@/lib/wsSymbolKey";
 
 export type LiveStockTick = {
   symbol: string;
@@ -44,19 +45,13 @@ export function mergeTicksIntoMaps(
   for (const raw of rows) {
     const tick = stockRowToTick(raw);
     if (!tick) continue;
-    ticks[tick.symbol] = tick;
-    quotes[tick.symbol] = tick.price;
+    for (const k of wsLookupKeys(tick.symbol)) {
+      ticks[k] = tick;
+      quotes[k] = tick.price;
+    }
   }
 }
 
 export function normalizeWsTick(raw: Record<string, unknown>): LiveStockTick | null {
-  const symbol = String(raw.symbol ?? "");
-  if (!symbol) return null;
-  return {
-    symbol,
-    price: Number(raw.price ?? 0),
-    change: Number(raw.change ?? 0),
-    changePercent: Number(raw.changePercent ?? raw.change_percent ?? 0),
-    volume: Number(raw.volume ?? 0),
-  };
+  return stockRowToTick(raw);
 }

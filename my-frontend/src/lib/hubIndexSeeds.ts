@@ -28,17 +28,39 @@ const SEEDS: Record<string, Omit<MarketIndexQuote, "id">> = {
   cotton: { name: "면", country: "CM", category: "commodity", price: 72.5, change: 0, changePercent: 0, status: "live" },
 };
 
-export function seedHubIndexQuote(id: string): MarketIndexQuote {
+/** 이름·메타만 (가격 placeholder 없음) */
+export function indexCatalogMeta(id: string): Omit<MarketIndexQuote, "id" | "price" | "change" | "changePercent"> {
   const row = SEEDS[id];
-  if (row) return { id, ...row };
+  if (row) {
+    return {
+      name: row.name,
+      country: row.country,
+      category: row.category,
+      status: row.status,
+    };
+  }
   return {
-    id,
     name: id,
     country: "—",
     category: "indices",
+    status: "live",
+  };
+}
+
+export function pendingIndexQuote(id: string): MarketIndexQuote {
+  return {
+    id,
+    ...indexCatalogMeta(id),
     price: 0,
     change: 0,
     changePercent: 0,
-    status: "live",
+    status: "pending",
   };
+}
+
+/** @deprecated API·WS 모두 실패한 오프라인 참고용 — UI 초기 로딩에는 pendingIndexQuote 사용 */
+export function seedHubIndexQuote(id: string): MarketIndexQuote {
+  const row = SEEDS[id];
+  if (row) return { id, ...row };
+  return pendingIndexQuote(id);
 }

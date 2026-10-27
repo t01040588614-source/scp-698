@@ -18,9 +18,16 @@ export function readLocalWatchlist(): WatchlistEntry[] {
   }
 }
 
-export function writeLocalWatchlist(items: WatchlistEntry[]) {
+export function writeLocalWatchlist(
+  items: WatchlistEntry[],
+  options?: { pushToServer?: boolean }
+) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   window.dispatchEvent(new Event("local-watchlist-changed"));
+  const push = options?.pushToServer !== false;
+  if (push && typeof window !== "undefined" && localStorage.getItem("token")) {
+    void import("@/lib/userDataSync").then((m) => m.pushWatchlistToServer().catch(() => undefined));
+  }
 }
 
 export function isInLocalWatchlist(symbol: string, market: "korea" | "us"): boolean {

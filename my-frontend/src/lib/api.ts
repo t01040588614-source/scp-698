@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 import type {
   KoreaStock,
   USStock,
@@ -81,7 +81,7 @@ function formatApiError(error: unknown): string {
     return error instanceof Error ? error.message : "알 수 없는 오류";
   }
   if (!error.response) {
-    return "백엔드에 연결할 수 없습니다. 주식대시보드_실행.bat으로 서버(8000·3000)를 시작하세요.";
+    return "백엔드에 연결할 수 없습니다. 주식대시보드_통합.bat(메뉴 1)으로 서버(8000·3000)를 시작하세요.";
   }
   const detail = error.response.data as { detail?: unknown };
   if (typeof detail?.detail === "string") return detail.detail;
@@ -94,6 +94,110 @@ function formatApiError(error: unknown): string {
   return error.message || `요청 실패 (${error.response.status})`;
 }
 
+function isAuthEndpoint(url: string | undefined): boolean {
+  if (!url) return false;
+  return (
+    url.includes("/auth/login") ||
+    url.includes("/auth/register") ||
+    url.includes("/auth/password/") ||
+    url.includes("/auth/refresh") ||
+    url.includes("/auth/logout")
+  );
+}
+
+const REFRESH_STORAGE_KEY = "refresh_token";
+
+export const setRefreshToken = (token: string | null) => {
+  if (typeof window === "undefined") return;
+  if (token) localStorage.setItem(REFRESH_STORAGE_KEY, token);
+  else localStorage.removeItem(REFRESH_STORAGE_KEY);
+};
+
+export const getRefreshToken = (): string | null => {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(REFRESH_STORAGE_KEY);
+};
+
+export const setAuthToken = (token: string | null) => {
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('token', token);
+    }
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+    }
+  }
+};
+
+export const clearAuthSession = () => {
+  setAuthToken(null);
+  setRefreshToken(null);
+};
+
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refresh = getRefreshToken();
+  if (!refresh) return null;
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const base = getApiBaseUrl();
+        const res = await axios.post(
+          `${base}/auth/refresh`,
+          { refresh_token: refresh },
+          { headers: { "Content-Type": "application/json" }, timeout: 15_000 }
+        );
+        const body = toCamelCase(res.data) as {
+          accessToken?: string;
+          refreshToken?: string;
+        };
+        const access = body.accessToken;
+        if (!access) return null;
+        setAuthToken(access);
+        if (body.refreshToken) setRefreshToken(body.refreshToken);
+        return access;
+      } catch {
+        return null;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
+let sessionExpiredDispatched = false;
+
+export function handleUnauthorizedResponse(error: unknown): void {
+  if (!axios.isAxiosError(error) || error.response?.status !== 401 || typeof window === "undefined") {
+    return;
+  }
+  const reqUrl = error.config?.url ?? "";
+  const hadToken = Boolean(localStorage.getItem("token"));
+  if (!hadToken || reqUrl.includes("/auth/me") || isAuthEndpoint(reqUrl)) return;
+  if (sessionExpiredDispatched) return;
+  sessionExpiredDispatched = true;
+  clearAuthSession();
+  window.dispatchEvent(new Event("auth:session-expired"));
+  window.setTimeout(() => {
+    sessionExpiredDispatched = false;
+  }, 3000);
+}
+
+export function attachAuthSessionResponseInterceptor(client: AxiosInstance): void {
+  client.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      handleUnauthorizedResponse(error);
+      return Promise.reject(error);
+    }
+  );
+}
+
 api.interceptors.response.use(
   (response) => {
     if (response.data) {
@@ -101,8 +205,25 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
+  async (error) => {
     error.message = formatApiError(error);
+    const original = error.config as { _retried?: boolean; url?: string; headers?: Record<string, string> };
+    if (
+      axios.isAxiosError(error) &&
+      error.response?.status === 401 &&
+      original &&
+      !original._retried &&
+      !isAuthEndpoint(original.url)
+    ) {
+      original._retried = true;
+      const access = await refreshAccessToken();
+      if (access) {
+        original.headers = original.headers ?? {};
+        original.headers.Authorization = `Bearer ${access}`;
+        return api.request(original);
+      }
+    }
+    handleUnauthorizedResponse(error);
     return Promise.reject(error);
   }
 );
@@ -120,21 +241,6 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
-
-// 토큰 설정
-export const setAuthToken = (token: string | null) => {
-  if (token) {
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('token', token);
-    }
-  } else {
-    delete api.defaults.headers.common['Authorization'];
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-    }
-  }
-};
 
 // 인증 관련 API
 export type PhoneSmsStatus = {
@@ -162,6 +268,39 @@ export const authApi = {
     });
   },
   getMe: () => api.get<User>('/auth/me'),
+  requestPasswordReset: (email: string) =>
+    api
+      .post<{ message: string; devResetToken?: string | null }>('/auth/password/forgot', { email })
+      .then((r) => r.data),
+  resetPassword: (token: string, password: string) =>
+    api.post<{ message: string }>('/auth/password/reset', { token, password }).then((r) => r.data),
+  refresh: (refreshToken: string) =>
+    api
+      .post<{ accessToken: string; refreshToken: string; tokenType: string }>('/auth/refresh', {
+        refreshToken,
+      })
+      .then((r) => r.data),
+  logout: (refreshToken: string) =>
+    api.post<{ ok: boolean }>('/auth/logout', { refreshToken }).then((r) => r.data),
+  syncMyKisSnapshot: () =>
+    api
+      .post<{
+        ok: boolean;
+        cashBalance?: number | null;
+        holdings?: { symbol: string; name: string; quantity: number; avgPrice: number }[];
+        holdingsCount?: number;
+        syncedAt?: string;
+      }>("/auth/me/broker/kis/sync")
+      .then((r) => r.data),
+  getMyKisSnapshot: () =>
+    api
+      .get<{
+        ok: boolean;
+        cashBalance?: number | null;
+        holdings?: { symbol: string; name: string; quantity: number; avgPrice: number }[];
+        syncedAt?: string;
+      }>("/auth/me/broker/kis/snapshot")
+      .then((r) => r.data),
   saveMyKisBroker: (body: {
     appKey: string;
     appSecret: string;
@@ -209,6 +348,15 @@ export const stockApi = {
     });
   },
   getMarketSectors: () => api.get<MarketSectorItem[]>('/market/sectors'),
+  getMarketSymbols: () =>
+    api.get<{
+      symbols: string[];
+      count: number;
+      korea: number;
+      us: number;
+      asia: number;
+      europe: number;
+    }>('/market/symbols'),
   getHealth: () => api.get<{ status: string; message?: string }>('/health'),
   getMarketSession: () => api.get<MarketSessionResponse>('/market/session'),
   getMarketCacheStatus: () =>
@@ -228,11 +376,27 @@ export const stockApi = {
       krHolidayName?: string | null;
       usHolidayName?: string | null;
       wsPushIntervalSec?: number;
+      yahooThrottled?: boolean;
+      refreshMode?: string;
       wsBroadcastAlive?: boolean;
       wsConnections?: number;
       wsLoopErrors?: number;
       lastError: string | null;
       message: string | null;
+      realtimeMode?: string;
+      realtimeDisclaimer?: string | null;
+      kisConfigured?: boolean;
+      kisLastFetchMs?: number | null;
+      kisLastFetchAt?: string | null;
+      redis?: { enabled?: boolean };
+      kisRealtime?: {
+        connected?: boolean;
+        tickCount?: number;
+        liveCount?: number;
+        desiredCount?: number;
+        reconnectAttempts?: number;
+        lastError?: string | null;
+      };
     }>('/market/cache-status'),
   refreshMarketCache: () =>
     api.post<{

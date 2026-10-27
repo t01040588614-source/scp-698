@@ -1,6 +1,10 @@
 import { getApiBaseUrl } from "@/lib/apiBase";
 import { mockChartData } from "@/data/mockData";
-import { normalizeOhlcPoint, summarizeFromPoints } from "@/lib/chartSeries";
+import {
+  historyPointsForChartPeriod,
+  normalizeOhlcPoint,
+  summarizeFromPoints,
+} from "@/lib/chartSeries";
 
 export type ChartMarket = "korea" | "us" | "index";
 
@@ -32,6 +36,7 @@ export interface ChartHistoryResult {
   summary: ChartPeriodSummary;
   source: "yahoo" | "fdr" | "synthetic" | "mock";
   interval?: string;
+  period?: string;
   yahooTicker?: string;
 }
 
@@ -66,9 +71,13 @@ function normalizeSummary(raw: Record<string, unknown> | undefined, points: Ohlc
 /** API 실패·봉 부족 시 클라이언트 참고 곡선 (사이드바 등) */
 export function syntheticFromPrice(basePrice: number, period: string): OhlcPoint[] {
   const steps =
-    { "1d": 48, "1w": 35, "1m": 126, "3m": 66, "6m": 126, "1y": 252, "5y": 260, max: 300 }[period] ?? 30;
+    { "1d": 48, "1w": 7, "1m": 31, "3m": 66, "5mo": 110, "6m": 126, "1y": 252, "5y": 260, max: 300 }[
+      period
+    ] ?? 30;
   const points: OhlcPoint[] = [];
   let prev = basePrice;
+  const end = new Date();
+  end.setHours(12, 0, 0, 0);
   for (let i = 0; i < steps; i += 1) {
     const drift = (i - steps / 2) * (basePrice * 0.0012);
     const noise = ((i * 17) % 7 - 3) * (basePrice * 0.0006);
@@ -79,9 +88,15 @@ export function syntheticFromPrice(basePrice: number, period: string): OhlcPoint
     const volume = Math.round(800_000 + (i % 5) * 120_000);
     let time = `P${i + 1}`;
     if (period === "1d") time = `${String(9 + Math.floor(i / 4)).padStart(2, "0")}:${String((i % 4) * 15).padStart(2, "0")}`;
-    else if (period === "1w" || period === "1m" || period === "3m") time = `${i + 1}일`;
+    else if (period === "1w" || period === "1m" || period === "3m" || period === "5mo") time = `${i + 1}일`;
     else time = `W${i + 1}`;
-    points.push({ time, open, high, low, close, volume, value: close });
+    const day = new Date(end);
+    if (period === "1w" || period === "1m") {
+      day.setDate(end.getDate() - (steps - 1 - i));
+    }
+    const timestamp =
+      period === "1w" || period === "1m" ? day.toISOString() : undefined;
+    points.push({ time, timestamp, open, high, low, close, volume, value: close });
     prev = close;
   }
   return anchorSeriesToPrice(points, basePrice);
@@ -171,11 +186,22 @@ export async function getStockHistory(params: {
     ) {
       points = anchorSeriesToPrice(points, params.basePrice);
     }
-    return {
+    const period = String(json.period ?? params.period);
+    const { points: chartPoints, interval: chartInterval } = historyPointsForChartPeriod(
       points,
-      summary: normalizeSummary(json.summary as Record<string, unknown>, points),
+      period,
+      String(json.interval ?? ""),
+    );
+    const summaryRaw =
+      period === "1w" || period === "1m"
+        ? undefined
+        : (json.summary as Record<string, unknown> | undefined);
+    return {
+      points: chartPoints,
+      summary: normalizeSummary(summaryRaw, chartPoints),
       source,
-      interval: String(json.interval ?? ""),
+      interval: chartInterval ?? String(json.interval ?? ""),
+      period,
       yahooTicker: String(json.yahooTicker ?? json.yahoo_ticker ?? ""),
     };
   };
@@ -189,14 +215,21 @@ export async function getStockHistory(params: {
     if (params.requireLiveData) {
       throw err instanceof Error ? err : new Error("차트 데이터를 불러오지 못했습니다.");
     }
-    const points =
+    let points =
       params.basePrice && params.basePrice > 0
         ? syntheticFromPrice(params.basePrice, params.period)
         : legacyMockToOhlc();
+    const { points: chartPoints, interval: chartInterval } = historyPointsForChartPeriod(
+      points,
+      params.period,
+    );
+    points = chartPoints;
     return {
       points,
       summary: normalizeSummary(undefined, points),
       source: params.basePrice ? "synthetic" : "mock",
+      interval: chartInterval,
+      period: params.period,
     };
   }
 }
@@ -208,10 +241,23 @@ export type KeyStatsRow = {
   premium?: boolean;
 };
 
+export type KeyStatsInsights = {
+  companyScore: number;
+  companyScoreLabel: string;
+  fairValue: number | null;
+  fairValueUpsidePct: number | null;
+  analystSentiment: string;
+  proTip: string;
+  epsGrowthPct: number | null;
+  dividendStreakYears: number | null;
+  beta: number | null;
+};
+
 export type KeyStatsResult = {
   symbol: string;
   market: string;
   columns: KeyStatsRow[][];
+  insights?: KeyStatsInsights;
 };
 
 export async function getStockKeyStats(params: {
@@ -231,13 +277,15 @@ export async function getStockKeyStats(params: {
 export async function getIndexHistory(
   indexId: string,
   period: string,
-  basePrice?: number
+  basePrice?: number,
+  interval?: string
 ): Promise<ChartHistoryResult> {
   return getStockHistory({
     symbol: indexId,
     market: "index",
     period,
     basePrice,
+    interval,
   });
 }
 

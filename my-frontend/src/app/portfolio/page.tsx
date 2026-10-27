@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,10 +9,13 @@ import { useAuth } from '@/context/AuthContext';
 import type { PortfolioItem } from '@/types/stock';
 import { applyLiveToPortfolio } from '@/lib/liveQuoteMerge';
 import { useLiveSymbols } from '@/hooks/useLiveSymbols';
+import { pickWsQuote } from '@/lib/wsSymbolKey';
 import LiveStreamBadge from '@/components/common/LiveStreamBadge';
 import { formatPrice, priceClass } from '@/lib/format';
 import { Plus, Pencil, Trash2, X } from 'lucide-react';
 import PortfolioAccountsHub from '@/components/portfolio/PortfolioAccountsHub';
+import KisBrokerSyncPanel from '@/components/portfolio/KisBrokerSyncPanel';
+import { buildLoginHref } from '@/lib/authNavigation';
 import StockCompanyLogo from '@/components/market/StockCompanyLogo';
 
 // 차분한 muted 차트 색상
@@ -74,7 +77,7 @@ function LegacyPortfolioSection() {
   const symbols = useMemo(() => portfolio.map((p) => p.symbol), [portfolio]);
   const { quotes, flash, isConnected } = useLiveSymbols(symbols);
   const livePortfolio = useMemo(
-    () => portfolio.map((item) => applyLiveToPortfolio(item, quotes[item.symbol])),
+    () => portfolio.map((item) => applyLiveToPortfolio(item, pickWsQuote(item.symbol, quotes))),
     [portfolio, quotes]
   );
 
@@ -175,7 +178,7 @@ function LegacyPortfolioSection() {
         <div className="inv-portfolio-empty px-5 pb-6">
           <p className="stock-name font-medium mb-1">로그인이 필요합니다</p>
           <p className="text-muted-sm mb-6">간편 포트폴리오를 확인하려면 로그인해 주세요.</p>
-          <a href="/login" className="btn-primary px-5 py-2.5">
+          <a href={buildLoginHref('/portfolio')} className="btn-primary px-5 py-2.5">
             로그인하러 가기
           </a>
         </div>
@@ -463,14 +466,15 @@ function LegacyPortfolioSection() {
 
 export default function PortfolioPage() {
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hash === '#docx-accounts') {
-      document.getElementById('docx-accounts')?.scrollIntoView({ behavior: 'smooth' });
+    if (typeof window !== "undefined" && ["#accounts", "#docx-accounts"].includes(window.location.hash)) {
+      document.getElementById("accounts")?.scrollIntoView({ behavior: "smooth" });
     }
   }, []);
 
   return (
     <>
       <PortfolioAccountsHub />
+      <KisBrokerSyncPanel />
       <LegacyPortfolioSection />
     </>
   );

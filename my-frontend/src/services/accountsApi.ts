@@ -1,4 +1,5 @@
 import axios from "axios";
+import { attachAuthSessionResponseInterceptor } from "@/lib/api";
 
 const OWNER_KEY = "kr-account-owner-id";
 
@@ -12,6 +13,7 @@ export function setAccountOwnerId(ownerId: string) {
 }
 
 const api = axios.create({ baseURL: "/api/accounts" });
+attachAuthSessionResponseInterceptor(api);
 
 function ownerQs(extra?: Record<string, string | number | undefined>) {
   const params = new URLSearchParams({ ownerId: getAccountOwnerId() });

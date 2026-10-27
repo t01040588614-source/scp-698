@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { stockApi } from "@/lib/api";
 import {
   koreaToEquity,
-  resolveLiveEquityQuote,
+  resolveLiveEquityQuoteFromMaps,
   usToEquity,
   type EquityQuote,
 } from "@/lib/equityQuotes";
@@ -51,7 +51,7 @@ function withLiveQuote(
   liveQuotes: Record<string, number>,
   liveTicks: Record<string, import("@/lib/wsNormalize").LiveStockTick>
 ): EquityQuote {
-  const live = resolveLiveEquityQuote(row, liveQuotes[row.symbol], liveTicks[row.symbol]);
+  const live = resolveLiveEquityQuoteFromMaps(row, liveQuotes, liveTicks);
   return {
     ...row,
     price: live.price,

@@ -33,12 +33,16 @@ function detailFor(region: MarketRegion, session: SessionKind): string {
   return "Next open 09:30 ET";
 }
 
-/** 보드 메타용 (ET·KST 캘린더, API hook과 동일 규칙) */
-export function getMarketSession(region: MarketRegion, now = new Date()): MarketSession {
-  const session = region === "korea" ? getKoreaMarketSession(now) : getUSMarketSession(now);
+export function marketSessionFromKind(region: MarketRegion, session: SessionKind): MarketSession {
   return {
     label: session === "open" ? "Regular hours" : sessionLabel(session),
     state: toBoardState(session),
     detail: detailFor(region, session),
   };
+}
+
+/** 보드 메타용 (ET·KST 캘린더, API hook과 동일 규칙) */
+export function getMarketSession(region: MarketRegion, now = new Date()): MarketSession {
+  const session = region === "korea" ? getKoreaMarketSession(now) : getUSMarketSession(now);
+  return marketSessionFromKind(region, session);
 }

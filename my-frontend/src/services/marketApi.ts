@@ -2,13 +2,7 @@ import { mockMarketOverview, mockTickerData } from "@/data/mockData";
 import { stockApi } from "@/lib/api";
 import { ALL_WS_INDEX_IDS } from "@/lib/indexCatalog";
 import { seedHubIndexQuote } from "@/lib/hubIndexSeeds";
-import {
-  buildIndexTickers,
-  filterIndexTickers,
-  koreaIndexStrip,
-  mapApiIndexToTicker,
-  usIndexStrip,
-} from "@/lib/marketFromStocks";
+import { buildIndexTickers, filterIndexTickers, mapApiIndexToTicker } from "@/lib/marketFromStocks";
 import { mapKoreaStockToMarketRow, mapUSStockToMarketRow } from "@/lib/marketFromStocks";
 import type { MarketRow } from "@/data/mockData";
 import type { MarketIndexQuote } from "@/types/stock";
@@ -32,24 +26,10 @@ export async function fetchMarketIndicesResilient(
     const rows = res.data ?? [];
     if (rows.length > 0) return { rows, live: true };
   } catch {
-    /* 참고 시세로 대체 */
+    /* skeleton — SidebarIndicesWidget pending 상태 */
   }
 
-  let seeds = seedMarketIndexCatalog();
-  if (ids) {
-    const allowed = new Set(
-      ids
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-    );
-    seeds = seeds.filter((r) => allowed.has(r.id));
-  }
-  if (category) {
-    seeds = seeds.filter((r) => r.category === category);
-  }
-  const rows = seeds.length > 0 ? seeds : seedMarketIndexCatalog();
-  return { rows, live: false };
+  return { rows: [], live: false };
 }
 
 async function fetchLiveMarketRows(): Promise<MarketRow[]> {
@@ -130,16 +110,43 @@ export async function getMarketTicker(params: Record<string, unknown> = {}) {
 }
 
 export async function getMarketIndicesForBoard(market: "korea" | "us") {
-  const ids =
-    market === "korea" ? "kospi,kosdaq,usd-krw" : "nasdaq,sp500,dow,us-tech100";
   try {
-    const res = await stockApi.getMarketIndices(ids);
-    const items = filterIndexTickers(res.data || [], market);
+    const res = await stockApi.getMarketIndices();
+    const items = filterIndexTickers(res.data ?? [], market);
     if (items.length === 0) throw new Error("empty");
     return { data: items, status: "live" as const };
   } catch {
+    try {
+      const ticker = await getMarketTicker();
+      const filtered = filterIndexTickers(
+        ticker.data.map((t) => ({
+          id: t.id,
+          name: t.name,
+          price: t.price,
+          change: t.change,
+          changePercent: t.changeRate,
+          status: t.status,
+        })),
+        market
+      );
+      if (filtered.length > 0) {
+        return { data: filtered, status: ticker.status };
+      }
+    } catch {
+      /* fall through */
+    }
     return {
-      data: market === "korea" ? koreaIndexStrip() : usIndexStrip(),
+      data: filterIndexTickers(
+        mockTickerData.map((t) => ({
+          id: t.id,
+          name: t.name,
+          price: t.price,
+          change: t.change,
+          changePercent: t.changeRate,
+          status: t.status,
+        })),
+        market
+      ),
       status: "mock" as const,
     };
   }

@@ -61,7 +61,7 @@ export default function EditAccountPage() {
     try {
       await accountsApi.delete(id);
       await queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      router.push("/portfolio#docx-accounts");
+      router.push("/portfolio#accounts");
     } catch {
       setError("삭제 실패");
       setDeleting(false);
@@ -72,7 +72,7 @@ export default function EditAccountPage() {
   if (!account) {
     return (
       <InvestingPageLayout
-        breadcrumbs={[{ label: "포트폴리오", href: "/portfolio#docx-accounts" }]}
+        breadcrumbs={[{ label: "포트폴리오", href: "/portfolio#accounts" }]}
         title="계좌 수정"
         description=""
         sidebar={false}
@@ -85,7 +85,7 @@ export default function EditAccountPage() {
   return (
     <InvestingPageLayout
       breadcrumbs={[
-        { label: "포트폴리오", href: "/portfolio#docx-accounts" },
+        { label: "포트폴리오", href: "/portfolio#accounts" },
         { label: account.name, href: `/accounts/${id}` },
         { label: "수정" },
       ]}

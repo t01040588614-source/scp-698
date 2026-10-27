@@ -506,6 +506,20 @@
   border: 1px solid transparent;
   border-radius: 999px;
   cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+.inv-key-stats-ai:hover {
+  box-shadow: 0 2px 12px rgba(168, 85, 247, 0.22);
+}
+
+.inv-key-stats-ai:active {
+  transform: scale(0.98);
+}
+
+.inv-key-stats-ai:focus-visible {
+  outline: 2px solid #a855f7;
+  outline-offset: 2px;
 }
 
 .inv-key-stats-ai-icon {

@@ -1,7 +1,15 @@
 export type StocksSourceLabel = "yahoo" | "fdr" | "reference" | "none";
 
 export function mapKoreaStocksSource(source?: string | null): StocksSourceLabel {
-  if (source === "yahoo" || source === "fdr") return source;
+  if (source === "fdr") return "fdr";
+  if (
+    source === "yahoo" ||
+    source === "yahoo+kis_watch" ||
+    source === "kis" ||
+    source?.startsWith("yahoo")
+  ) {
+    return "yahoo";
+  }
   if (source === "reference") return "reference";
   return "none";
 }

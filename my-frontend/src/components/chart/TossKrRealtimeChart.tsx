@@ -9,10 +9,10 @@ import {
   normalizeChartPeriod,
   type ChartHubPeriodId,
 } from "@/config/chartPeriods";
-import type { IntradayIntervalId } from "@/config/chartIntraday";
+import { resolveChartHistoryInterval, type IntradayIntervalId } from "@/config/chartIntraday";
 import { useLiveSymbols } from "@/hooks/useLiveSymbols";
 import { mergeLiveStockPrice } from "@/lib/liveQuoteMerge";
-import { liveOhlcForPeriod, syncLastPointToLivePrice } from "@/lib/chartSeries";
+import { liveOhlcForPeriod, patchLastPointWithLiveQuote } from "@/lib/chartSeries";
 import { stockApi } from "@/lib/api";
 import { CHART_HEIGHT } from "@/config/chartLayout";
 
@@ -28,7 +28,7 @@ export default function TossKrRealtimeChart({ code, name, height = CHART_HEIGHT.
   const [intradayInterval, setIntradayInterval] = useState<IntradayIntervalId>("5m");
 
   const { quotes, isConnected } = useLiveSymbols([code]);
-  const historyInterval = period === "1d" || period === "1w" ? intradayInterval : undefined;
+  const historyInterval = resolveChartHistoryInterval(period, intradayInterval);
 
   const { data, isLoading } = useQuery({
     queryKey: ["toss-kr-chart", code, period, historyInterval],
@@ -68,9 +68,22 @@ export default function TossKrRealtimeChart({ code, name, height = CHART_HEIGHT.
     return mergeLiveStockPrice(basePrice, baseChange, basePct, prevClose, wsPrice);
   }, [koreaRow, summary, wsPrice]);
 
+  const isIntradaySession = period === "1d" && /m$|h$/.test(data?.interval ?? "");
+
   const chartPoints = useMemo(
-    () => syncLastPointToLivePrice(points, live.price),
-    [points, live.price],
+    () =>
+      patchLastPointWithLiveQuote(
+        points,
+        {
+          price: live.price,
+          open: koreaRow?.open,
+          high: koreaRow?.high,
+          low: koreaRow?.low,
+          volume: koreaRow?.volume,
+        },
+        { useSessionHighLow: period === "1d", isIntradaySession },
+      ),
+    [points, live.price, koreaRow, period, isIntradaySession],
   );
 
   const displayPoints = chartPoints.length >= 2 ? chartPoints : points;

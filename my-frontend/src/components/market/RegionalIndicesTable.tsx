@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Link from "next/link";
+import AppLink from "@/components/common/AppLink";
+import { indexMarketsHref } from "@/lib/indexStrip";
 import type { MarketIndexQuote } from "@/types/stock";
 import type { MarketBreadth } from "@/lib/regionalMarkets";
 import { countryFlag } from "@/lib/regionalMarkets";
@@ -44,12 +45,14 @@ export default function RegionalIndicesTable({
       <div className="inv-hub-section-head-row">
         <h3 className="inv-hub-section-title">{title}</h3>
         <div className="inv-hub-breadth-wrap">
-          <span className="inv-hub-breadth-label">Universe breadth</span>
+          <span className="inv-hub-breadth-label">종목 분포</span>
           <MarketSummaryBar breadth={breadth} className="inv-hub-breadth-bar" />
           <span className="inv-hub-breadth-counts tabular">
-            <span className="price-up">{breadth.advance} up</span>
+            <span className="price-up">상승 {breadth.advance}</span>
             {" · "}
-            <span className="price-down">{breadth.decline} down</span>
+            <span className="price-muted">보합 {breadth.unchanged}</span>
+            {" · "}
+            <span className="price-down">하락 {breadth.decline}</span>
           </span>
         </div>
       </div>
@@ -58,11 +61,11 @@ export default function RegionalIndicesTable({
           <thead>
             <tr>
               <th scope="col" className="inv-col-name">
-                Name
+                이름
               </th>
-              <th scope="col">Last</th>
-              <th scope="col">Change</th>
-              <th scope="col">Change %</th>
+              <th scope="col">현재가</th>
+              <th scope="col">등락</th>
+              <th scope="col">등락률</th>
             </tr>
           </thead>
           <tbody>
@@ -73,14 +76,14 @@ export default function RegionalIndicesTable({
                 className={highlightIndexId === row.id ? "is-index-highlight" : undefined}
               >
                 <td className="inv-col-name">
-                  <Link href={`/markets?tab=indices&index=${row.id}`} className="inv-name-link">
+                  <AppLink href={indexMarketsHref(row.id)} className="inv-name-link">
                     <span className="inv-hub-index-name">
                       <span className="inv-hub-index-flag" aria-hidden>
                         {countryFlag(row.country)}
                       </span>
                       <span className="inv-name">{row.name}</span>
                     </span>
-                  </Link>
+                  </AppLink>
                 </td>
                 <td className="tabular inv-last">{formatIndexPrice(row.id, row.price)}</td>
                 <td className={`tabular inv-chg ${priceClass(row.change)}`}>

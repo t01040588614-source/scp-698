@@ -1,6 +1,7 @@
 "use client";
 
 import type { MarketRow } from "@/data/mockData";
+import { useClientLocaleTime } from "@/hooks/useClientLocaleTime";
 import { usePriceFlash } from "@/hooks/usePriceFlash";
 import { mergeLiveStockPrice } from "@/lib/liveQuoteMerge";
 import {
@@ -12,6 +13,7 @@ import {
 } from "@/lib/format";
 import StockNameWithLogo from "@/components/market/StockNameWithLogo";
 import { inferStockMarket } from "@/lib/inferStockMarket";
+import { pickWsQuote } from "@/lib/wsSymbolKey";
 
 interface MarketTableProps {
   rows: MarketRow[];
@@ -21,6 +23,7 @@ interface MarketTableProps {
 
 export default function MarketTable({ rows, liveQuotes, investingExact }: MarketTableProps) {
   const priceFlash = usePriceFlash(liveQuotes ?? {});
+  const rowTime = useClientLocaleTime("hm") ?? "—";
 
   if (rows.length === 0) {
     return null;
@@ -58,7 +61,7 @@ export default function MarketTable({ rows, liveQuotes, investingExact }: Market
           </thead>
           <tbody>
             {rows.map((row) => {
-              const live = liveQuotes?.[row.symbol];
+              const live = pickWsQuote(row.symbol, liveQuotes ?? {});
               const merged = mergeLiveStockPrice(
                 row.price,
                 row.change,
@@ -104,7 +107,7 @@ export default function MarketTable({ rows, liveQuotes, investingExact }: Market
                     {formatPrice(row.low, row.low > 1000 ? 0 : 2)}
                   </td>
                   <td className="inv-hide-sm">{row.volume}</td>
-                  <td className="inv-time inv-hide-sm">{row.updatedAt}</td>
+                  <td className="inv-time inv-hide-sm">{rowTime}</td>
                 </tr>
               );
             })}
@@ -114,7 +117,7 @@ export default function MarketTable({ rows, liveQuotes, investingExact }: Market
 
       <div className="market-card-list market-card-list--mobile-only">
         {rows.map((row) => {
-          const live = liveQuotes?.[row.symbol];
+          const live = pickWsQuote(row.symbol, liveQuotes ?? {});
           const merged = mergeLiveStockPrice(
             row.price,
             row.change,

@@ -9,6 +9,8 @@ type MarketPageShellProps = {
   children: React.ReactNode;
   toolbar?: React.ReactNode;
   compactHead?: boolean;
+  /** 종목 상세 등 — 컨테이너 좌우 여백 최소·전폭 */
+  fullWidth?: boolean;
 };
 
 export default function MarketPageShell({
@@ -18,9 +20,12 @@ export default function MarketPageShell({
   children,
   toolbar,
   compactHead,
+  fullWidth,
 }: MarketPageShellProps) {
   return (
-    <div className="container page-section page-section--market">
+    <div
+      className={`container page-section page-section--market${fullWidth ? " page-section--market-full" : ""}`}
+    >
       <header
         className={`inv-page-head inv-page-head--band${compactHead ? " inv-page-head--compact" : ""}`}
       >

@@ -12,7 +12,7 @@ export default function AnalysisPage() {
   return (
     <InvestingPageLayout
       breadcrumbs={[
-        { label: "홈", href: "/" },
+        { label: "홈", href: "/markets" },
         { label: "분석" },
       ]}
       title="시장 분석"

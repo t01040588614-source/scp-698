@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { stockApi } from "@/lib/api";
@@ -9,13 +9,14 @@ import {
   getStockHistory,
   type ChartMarket,
 } from "@/services/chartApi";
-import { type IntradayIntervalId } from "@/config/chartIntraday";
+import { resolveChartHistoryInterval, type IntradayIntervalId } from "@/config/chartIntraday";
 import {
   directionSymbol,
   formatChange,
   formatPercent,
   formatPrice,
   priceClass,
+  priceDecimalsForEquity,
 } from "@/lib/format";
 import LoadingState from "@/components/common/LoadingState";
 import ErrorState from "@/components/common/ErrorState";
@@ -23,16 +24,26 @@ import LiveStreamBadge from "@/components/common/LiveStreamBadge";
 import { useLiveSymbols } from "@/hooks/useLiveSymbols";
 import { useMarketWebSocketContext } from "@/context/MarketWebSocketProvider";
 import { mergeLiveStockQuote } from "@/lib/liveQuoteMerge";
+import {
+  chartAuxQuoteRefetchMs,
+  quoteDetailRefetchMs,
+} from "@/lib/marketRefreshSettings";
 import InvestingStyleChart, { type InvestingChartType } from "@/components/chart/InvestingStyleChart";
 import ChartPeriodPerformanceStrip from "@/components/chart/ChartPeriodPerformanceStrip";
 import ChartMajorStatistics from "@/components/chart/ChartMajorStatistics";
-import { liveOhlcForPeriod } from "@/lib/chartSeries";
+import { patchLastPointWithLiveQuote, resolveChartLegendOhlc } from "@/lib/chartSeries";
+import type { Stock } from "@/types/stock";
 import {
   DEFAULT_CHART_PERIOD,
   chartHistoryRefetchMs,
   normalizeChartPeriod,
   type ChartHubPeriodId,
 } from "@/config/chartPeriods";
+import {
+  alignedStockHistory,
+  chartDisplayInterval,
+  syncIntradayForChartPeriod,
+} from "@/lib/chartPeriodSelection";
 import { useChartPeriodReturns } from "@/hooks/useChartPeriodReturns";
 import { chartHeightForViewport } from "@/config/chartLayout";
 
@@ -44,6 +55,11 @@ type ChartPanelProps = {
   investingEquityPage?: boolean;
   initialSymbol?: string;
   initialMarket?: ChartMarket;
+  /** 종목 상세 — 상위에서 이미 fetch·WS 병합한 시세 (중복 REST 방지) */
+  parentQuote?: Pick<
+    Stock,
+    "symbol" | "price" | "change" | "changePercent" | "volume" | "open" | "high" | "low" | "previousClose" | "name"
+  >;
 };
 
 export default function ChartPanel({
@@ -52,6 +68,7 @@ export default function ChartPanel({
   investingEquityPage = false,
   initialSymbol,
   initialMarket,
+  parentQuote,
 }: ChartPanelProps) {
   const isHub = showSymbolPicker;
   const isInvestingBlock = isHub || investingEmbed;
@@ -60,7 +77,9 @@ export default function ChartPanel({
   const [chartHeight, setChartHeight] = useState(() =>
     chartHeightForViewport(heightVariant, false)
   );
-  const [period, setPeriod] = useState<ChartHubPeriodId>(DEFAULT_CHART_PERIOD);
+  const [period, setPeriod] = useState<ChartHubPeriodId>(() =>
+    investingEquityPage ? "1d" : DEFAULT_CHART_PERIOD,
+  );
   const [market, setMarket] = useState<ChartMarket>(initialMarket ?? "korea");
   const [symbol, setSymbol] = useState<string | null>(initialSymbol ?? null);
   const [chartType, setChartType] = useState<InvestingChartType>(
@@ -68,8 +87,16 @@ export default function ChartPanel({
   );
   const [intradayInterval, setIntradayInterval] = useState<IntradayIntervalId>("5m");
 
-  const historyInterval =
-    period === "1d" || period === "1w" ? intradayInterval : undefined;
+  const selectChartPeriod = useCallback((p: ChartHubPeriodId) => {
+    const next = normalizeChartPeriod(p);
+    setPeriod(next);
+    syncIntradayForChartPeriod(next, setIntradayInterval);
+    if (next === "1m" || next === "1w") {
+      setChartType("candle");
+    }
+  }, []);
+
+  const historyInterval = resolveChartHistoryInterval(period, intradayInterval);
 
   useEffect(() => {
     const m = searchParams.get("market");
@@ -98,7 +125,7 @@ export default function ChartPanel({
   const { data: koreaStocks, isLoading: koreaLoading, isError: koreaError, refetch: refetchKorea } = useQuery({
     queryKey: ["chartKoreaStocks"],
     queryFn: () => stockApi.getKoreaStocks().then((r) => r.data),
-    refetchInterval: wsConnected ? 12_000 : 25_000,
+    refetchInterval: chartAuxQuoteRefetchMs(wsConnected),
     staleTime: 2_000,
     retry: 2,
     refetchOnWindowFocus: true,
@@ -150,6 +177,12 @@ export default function ChartPanel({
   const wsTick = activeSymbol ? ticks[activeSymbol] : undefined;
   const wsPrice = activeSymbol ? quotes[activeSymbol] : undefined;
 
+  const useParentQuote =
+    investingEmbed &&
+    parentQuote != null &&
+    activeSymbol != null &&
+    parentQuote.symbol === activeSymbol;
+
   const { data: liveDetail, dataUpdatedAt: liveQuoteAt } = useQuery({
     queryKey: ["liveStockDetail", market, activeSymbol],
     queryFn: async () => {
@@ -158,16 +191,17 @@ export default function ChartPanel({
       }
       return (await stockApi.getUSStockDetail(activeSymbol!)).data;
     },
-    enabled: Boolean(activeSymbol),
-    refetchInterval: isConnected ? 1_500 : 6_000,
+    enabled: Boolean(activeSymbol) && !useParentQuote,
+    refetchInterval: quoteDetailRefetchMs(isConnected),
     staleTime: 0,
   });
 
-  const leadLive = liveDetail ?? lead;
+  const leadLive = useParentQuote ? parentQuote : liveDetail ?? lead;
 
   const {
     data: history,
     isLoading: historyLoading,
+    isFetching: historyFetching,
     isError: historyError,
     refetch: refetchHistory,
   } = useQuery({
@@ -202,7 +236,14 @@ export default function ChartPanel({
     staleTime: 300_000,
   });
 
-  const summary = history?.summary;
+  const historyAligned = alignedStockHistory(history, period);
+  const historyPeriodMismatch = Boolean(history && !historyAligned);
+  const historyBusy =
+    historyLoading ||
+    historyPeriodMismatch ||
+    (historyFetching && !historyAligned);
+  const summary = historyAligned?.summary;
+  const chartDataInterval = chartDisplayInterval(period, historyAligned);
 
   const quoteMerged = useMemo(() => {
     const basePrice = leadLive?.price ?? summary?.close ?? 0;
@@ -224,48 +265,37 @@ export default function ChartPanel({
   }, [leadLive, summary, wsPrice, wsTick]);
 
   const isIntradaySession = useMemo(() => {
-    const iv = history?.interval ?? "";
+    const iv = chartDataInterval ?? "";
     return period === "1d" && /m$|h$/.test(iv);
-  }, [history?.interval, period]);
+  }, [chartDataInterval, period]);
+
+  const useSessionHighLow = period === "1d" || isIntradaySession;
 
   const chartPoints = useMemo(() => {
-    const pts = history?.points ?? [];
-    if (pts.length < 2) return pts;
-    const last = pts[pts.length - 1];
-    const dayHigh = Math.max(
-      leadLive?.high ?? summary?.high ?? quoteMerged.price,
-      quoteMerged.price
-    );
-    const dayLow = Math.min(
-      leadLive?.low ?? summary?.low ?? quoteMerged.price,
-      quoteMerged.price
-    );
-    const lastVolume = isIntradaySession
-      ? (last.volume ?? 0)
-      : Math.max(last.volume ?? 0, quoteMerged.volume ?? 0);
-    return [
-      ...pts.slice(0, -1),
+    return patchLastPointWithLiveQuote(
+      historyAligned?.points ?? [],
       {
-        ...last,
-        close: quoteMerged.price,
-        high: Math.max(last.high, dayHigh),
-        low: Math.min(last.low, dayLow),
-        open: leadLive?.open ?? last.open,
-        volume: lastVolume,
-        value: quoteMerged.price,
+        price: quoteMerged.price,
+        volume: quoteMerged.volume,
+        open: leadLive?.open,
+        high: leadLive?.high,
+        low: leadLive?.low,
       },
-    ];
+      { useSessionHighLow, isIntradaySession },
+    );
   }, [
-    history?.points,
+    historyAligned?.points,
     quoteMerged.price,
     quoteMerged.volume,
-    leadLive,
-    summary,
+    leadLive?.open,
+    leadLive?.high,
+    leadLive?.low,
+    useSessionHighLow,
     isIntradaySession,
   ]);
 
   const chartPointsForDisplay =
-    chartPoints.length >= 2 ? chartPoints : (history?.points ?? []);
+    chartPoints.length >= 2 ? chartPoints : (historyAligned?.points ?? []);
 
   const { returns: periodReturns, loading: perfLoading } = useChartPeriodReturns({
     symbol: activeSymbol,
@@ -276,13 +306,19 @@ export default function ChartPanel({
     livePrice: quoteMerged.price,
   });
 
-  const priceDecimals = quoteMerged.price > 1000 ? 0 : 2;
+  const priceDecimals = priceDecimalsForEquity(
+    market === "us" ? "us" : "korea",
+    quoteMerged.price,
+  );
   const priceFlash = activeSymbol ? flash[activeSymbol] : undefined;
 
-  const hasChartData = (history?.points?.length ?? 0) >= 2;
+  const hasChartData = (historyAligned?.points?.length ?? 0) >= 2;
   const isLoading =
     marketListLoading ||
-    (Boolean(activeSymbol) && marketListReady && historyLoading && !hasChartData);
+    (Boolean(activeSymbol) &&
+      marketListReady &&
+      (historyBusy) &&
+      !hasChartData);
   const isError =
     marketListError ||
     (Boolean(activeSymbol) && marketListReady && historyError && !hasChartData);
@@ -320,10 +356,10 @@ export default function ChartPanel({
       symbolLabel={activeSymbol}
       subtitle={stockName}
       points={chartPointsForDisplay}
-      loading={historyLoading}
+      loading={historyBusy}
       height={chartHeight}
       period={period}
-      onPeriodChange={(p) => setPeriod(normalizeChartPeriod(p))}
+      onPeriodChange={(p) => selectChartPeriod(normalizeChartPeriod(p))}
       hidePeriodToolbar
       chartType={chartType}
       onChartTypeChange={setChartType}
@@ -353,20 +389,16 @@ export default function ChartPanel({
       enableLiveTail={
         chartPointsForDisplay.length >= 2 &&
         quoteMerged.price > 0 &&
-        (isConnected || period !== "1d" || isIntradaySession || history?.interval === "1d")
+        (isConnected || period !== "1d" || isIntradaySession || chartDataInterval === "1d")
       }
-      dataInterval={history?.interval}
+      dataInterval={chartDataInterval}
       liveVolume={isIntradaySession ? undefined : quoteMerged.volume}
       liveOhlc={
-        liveOhlcForPeriod(chartPointsForDisplay, quoteMerged.price) ?? {
-          open: leadLive?.open ?? summary?.open ?? quoteMerged.price,
-          high: Math.max(
-            leadLive?.high ?? summary?.high ?? quoteMerged.price,
-            quoteMerged.price
-          ),
-          low: Math.min(leadLive?.low ?? summary?.low ?? quoteMerged.price, quoteMerged.price),
-          close: quoteMerged.price,
-        }
+        resolveChartLegendOhlc(chartPointsForDisplay, quoteMerged.price, {
+          open: leadLive?.open ?? chartPointsForDisplay.at(-1)?.open,
+          high: useSessionHighLow ? leadLive?.high : undefined,
+          low: useSessionHighLow ? leadLive?.low : undefined,
+        }) ?? undefined
       }
     />
   );
@@ -374,7 +406,7 @@ export default function ChartPanel({
   const periodStrip = (
     <ChartPeriodPerformanceStrip
       activePeriod={period}
-      onSelect={(p) => setPeriod(normalizeChartPeriod(p))}
+      onSelect={(p) => selectChartPeriod(normalizeChartPeriod(p))}
       returns={periodReturns}
       loading={perfLoading}
     />

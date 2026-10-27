@@ -1,7 +1,7 @@
 "use client";
 
 import { SPARKLINE_SIZE } from "@/config/chartLayout";
-import { buildSparklinePath } from "@/lib/sparklinePath";
+import { buildSparklineAreaPath, buildSparklinePath } from "@/lib/sparklinePath";
 
 type SparklineProps = {
   points: number[];
@@ -18,8 +18,10 @@ export default function Sparkline({
 }: SparklineProps) {
   if (points.length < 2) return null;
 
-  const d = buildSparklinePath(points, width, height);
+  const line = buildSparklinePath(points, width, height);
+  const area = buildSparklineAreaPath(points, width, height);
   const stroke = positive ? "var(--market-up)" : "var(--market-down)";
+  const fill = positive ? "rgba(214, 64, 69, 0.14)" : "rgba(0, 107, 246, 0.14)";
 
   return (
     <svg
@@ -30,7 +32,8 @@ export default function Sparkline({
       preserveAspectRatio="none"
       aria-hidden
     >
-      <path d={d} fill="none" stroke={stroke} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+      <path d={area} fill={fill} stroke="none" />
+      <path d={line} fill="none" stroke={stroke} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }

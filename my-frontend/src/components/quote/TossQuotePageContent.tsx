@@ -5,7 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import { stockApi } from "@/lib/api";
 import LoadingState from "@/components/common/LoadingState";
 import { useLiveSymbols } from "@/hooks/useLiveSymbols";
+import { pickWsQuote, pickWsTick } from "@/lib/wsSymbolKey";
 import { mergeLiveStockQuote } from "@/lib/liveQuoteMerge";
+import { quoteDetailRefetchMs } from "@/lib/marketRefreshSettings";
 import TossEquityHeader from "@/components/quote/TossEquityHeader";
 import TossKrRealtimeChart from "@/components/chart/TossKrRealtimeChart";
 type Props = {
@@ -21,7 +23,7 @@ export default function TossQuotePageContent({ symbol }: Props) {
       const res = await stockApi.getKoreaStockDetail(symbol);
       return res.data;
     },
-    refetchInterval: isConnected ? 1_500 : 8_000,
+    refetchInterval: quoteDetailRefetchMs(isConnected),
     staleTime: 0,
   });
 
@@ -35,8 +37,8 @@ export default function TossQuotePageContent({ symbol }: Props) {
         previousClose: data.previousClose,
         volume: data.volume,
       },
-      quotes[symbol],
-      ticks[symbol]
+      pickWsQuote(symbol, quotes),
+      pickWsTick(symbol, ticks)
     );
     return { ...data, ...merged };
   }, [data, quotes, ticks, symbol]);

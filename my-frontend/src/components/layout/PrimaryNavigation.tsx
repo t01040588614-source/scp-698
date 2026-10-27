@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import AppLink from "@/components/common/AppLink";
 import { uiConfig } from "@/config/uiConfig";
 
 function isActive(pathname: string, href: string) {
@@ -14,15 +14,15 @@ export default function PrimaryNavigation() {
 
   return (
     <div className="primary-navigation-bar">
-      <nav className="primary-navigation inv-gnav container hidden md:flex" aria-label="주요 메뉴">
+      <nav className="primary-navigation inv-gnav container" aria-label="주요 메뉴">
         {uiConfig.navigation.primary.map((item) => (
-          <Link
+          <AppLink
             key={item.href}
             href={item.href}
             aria-current={isActive(pathname, item.href) ? "page" : undefined}
           >
             {item.label}
-          </Link>
+          </AppLink>
         ))}
       </nav>
     </div>

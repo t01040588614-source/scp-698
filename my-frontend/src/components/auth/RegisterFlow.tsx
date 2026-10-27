@@ -19,6 +19,7 @@ import AuthAside from "@/components/auth/AuthAside";
 import AuthServiceNotice from "@/components/auth/AuthServiceNotice";
 import AppLogo from "@/components/layout/AppLogo";
 import { authUi, registerRibbonTitle } from "@/content/authUi";
+import { buildLoginHref } from "@/lib/authNavigation";
 import {
   assessPasswordStrength,
   formatPhoneDisplay,
@@ -380,7 +381,7 @@ export default function RegisterFlow() {
       <div className="auth-register-main">
         <div className="auth-register-mobile-top">
           <Link href="/korea" className="auth-register-mobile-logo">
-            <AppLogo />
+            <AppLogo link={false} />
           </Link>
           {step < 6 && (
             <p className="auth-register-mobile-step">
@@ -890,7 +891,7 @@ export default function RegisterFlow() {
           {step < 6 && (
             <p className="auth-register-login-prompt">
               이미 계정이 있으신가요?{" "}
-              <Link href="/login" className="link-accent">
+              <Link href={buildLoginHref("/korea")} className="link-accent">
                 로그인
               </Link>
             </p>

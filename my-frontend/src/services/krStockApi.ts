@@ -1,5 +1,5 @@
 import axios from "axios";
-import { api, setAuthToken } from "@/lib/api";
+import { api, attachAuthSessionResponseInterceptor, setAuthToken } from "@/lib/api";
 import { getServerApiBaseUrl } from "@/lib/apiBase";
 
 function toCamelCase(obj: unknown): unknown {
@@ -34,6 +34,7 @@ docxApi.interceptors.response.use((response) => {
   if (response.data) response.data = toCamelCase(response.data);
   return response;
 });
+attachAuthSessionResponseInterceptor(docxApi);
 
 export type KrScreenerConditions = {
   query?: string;

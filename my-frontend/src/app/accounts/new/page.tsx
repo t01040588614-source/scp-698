@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import InvestingPageLayout from "@/components/layout/InvestingPageLayout";
 import { accountsApi, setAccountOwnerId } from "@/services/accountsApi";
+import { setPreferredTradeAccountId } from "@/lib/preferredTradeAccount";
 
 function NewAccountForm() {
   const router = useRouter();
@@ -29,6 +30,7 @@ function NewAccountForm() {
         accountNumber: accountNumber || undefined,
         cashBalance: cash ? Number(cash) : 0,
       });
+      setPreferredTradeAccountId(acc.id);
       router.push(`/accounts/${acc.id}`);
     } catch {
       setError("계좌 생성 실패 — DB 연결을 확인하세요.");
@@ -65,11 +67,11 @@ export default function NewAccountPage() {
   return (
     <InvestingPageLayout
       breadcrumbs={[
-        { label: "포트폴리오", href: "/portfolio#docx-accounts" },
+        { label: "포트폴리오", href: "/portfolio#accounts" },
         { label: "새 계좌" },
       ]}
       title="새 계좌"
-      description="DOCX UserAccount 생성"
+      description="새 증권 계좌를 등록합니다."
       sidebar={false}
     >
       <Suspense fallback={<p className="inv-page-desc">로딩…</p>}>

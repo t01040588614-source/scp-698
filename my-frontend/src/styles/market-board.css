@@ -118,7 +118,15 @@
 
 .inv-market-board .inv-table-wrap {
   width: 100%;
-  overflow-x: auto;
+  max-width: 100%;
+  overflow-x: visible;
+  overflow-y: visible;
+}
+
+@media (max-width: 767px) {
+  .inv-market-board .inv-table-wrap {
+    overflow-x: auto;
+  }
 }
 
 .inv-table.inv-table--investing-exact {
@@ -156,11 +164,58 @@
 
 /* ─── 토스증권 스타일 가격 표 ─── */
 .inv-table.inv-table--toss-price {
-  min-width: 1080px;
+  min-width: min(100%, 1080px);
+  width: max(100%, 1080px);
+  table-layout: fixed;
+}
+
+.inv-table--toss-price col.inv-col-rank-col {
+  width: 2.75rem;
+}
+
+.inv-table--toss-price col.inv-col-check-col {
+  width: 2.125rem;
+}
+
+.inv-table--toss-price col.inv-col-star-col {
+  width: 2.375rem;
+}
+
+.inv-table--toss-price col.inv-col-name-col {
+  width: 22%;
+}
+
+.inv-table--toss-price col.inv-toss-col-price {
+  width: 7.5rem;
+}
+
+.inv-table--toss-price col.inv-toss-col-pct {
+  width: 6.5rem;
+}
+
+.inv-table--toss-price col.inv-toss-col-turnover {
+  width: 6.5rem;
+}
+
+.inv-table--toss-price col.inv-toss-col-mcap {
+  width: 6.5rem;
+}
+
+.inv-table--toss-price col.inv-toss-col-ratio {
+  width: 9.5rem;
+}
+
+.inv-table--toss-price col.inv-toss-col-sector {
+  width: 7.5rem;
+}
+
+.inv-table--toss-price col.inv-toss-col-ai {
+  width: auto;
+  min-width: 10rem;
 }
 
 .inv-table--investing-exact.inv-table--toss-price thead th {
-  background: transparent;
+  background: var(--inv-table-header-bg, var(--surface));
   border-bottom: 1px solid var(--border-subtle);
   font-size: 12px;
   font-weight: 700;
@@ -170,9 +225,14 @@
 }
 
 .inv-table--investing-exact.inv-table--toss-price tbody td {
-  padding-top: 16px;
-  padding-bottom: 16px;
+  padding-top: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.inv-table--investing-exact.inv-table--toss-price tbody tr {
+  height: 52px;
 }
 
 .inv-table--toss-price tbody tr:nth-child(even) {
@@ -305,8 +365,17 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
-  line-height: 1.45;
-  max-width: 200px;
+  line-height: 1.35;
+  min-width: 120px;
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inv-table--toss-price th.inv-toss-th-ai,
+.inv-table--toss-price td.inv-toss-ai {
+  padding-right: 16px;
 }
 
 .inv-table--toss-price .inv-col-name .inv-name {
@@ -381,7 +450,24 @@
   position: relative;
   padding: var(--space-2) 0 0;
   flex-shrink: 0;
-  min-height: var(--chart-height-sidebar);
+  min-height: calc(var(--chart-height-sidebar) + 48px);
+}
+
+.inv-sidebar-indices-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  padding-bottom: calc(var(--space-4) + 52px);
+}
+
+.inv-sidebar-indices .inv-investing-chart--compact {
+  width: 100%;
+  min-width: 0;
+}
+
+.inv-sidebar-indices .inv-investing-chart-stage {
+  overflow: hidden;
 }
 
 .inv-sidebar-chart-block .inv-sidebar-chart {
@@ -448,14 +534,15 @@
   border-top: 1px solid var(--border-subtle);
 }
 
-.inv-sidebar-index-row--btn {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
+.inv-sidebar-index-list--live .inv-sidebar-index-row--btn {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(64px, auto) minmax(44px, auto) minmax(52px, auto);
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
   width: 100%;
-  min-height: 44px;
-  padding: 8px 10px;
+  min-height: 36px;
+  padding: 6px 10px;
   font: inherit;
   text-align: left;
   background: transparent;
@@ -465,30 +552,144 @@
 }
 
 .inv-sidebar-index-list--live .inv-sidebar-index-name {
+  grid-column: 1;
   flex: none;
   min-width: 0;
   max-width: none;
-  overflow: visible;
-  text-overflow: unset;
-  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   word-break: keep-all;
   line-height: 1.35;
   font-size: 12px;
   font-weight: 700;
   color: var(--text-secondary);
+  padding-right: 4px;
 }
 
 .inv-sidebar-index-row--btn.is-selected {
   background: var(--primary-muted);
 }
 
-.inv-sidebar-index-row--btn.is-flash-up,
-.inv-sidebar-index-price.is-flash-up {
+.inv-sidebar-index-row--btn.is-pending {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.inv-sidebar-index-row--btn.is-pending .inv-sidebar-index-price,
+.inv-sidebar-index-row--btn.is-pending .inv-sidebar-index-metrics .tabular {
+  color: var(--text-muted);
+  animation: inv-pending-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes inv-pending-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.inv-table-wrap--skeleton {
+  pointer-events: none;
+}
+
+.inv-table-wrap--skeleton thead th button {
+  cursor: wait;
+}
+
+.inv-table-sk-body .inv-table-sk-row:nth-child(even) {
+  background: var(--inv-table-row-alt);
+}
+
+.inv-table-sk-cell {
+  display: block;
+  height: 13px;
+  border-radius: 4px;
+  max-width: 72px;
+  margin-inline: auto;
+}
+
+.inv-table-sk-cell--name {
+  max-width: 88%;
+  height: 15px;
+  margin-inline: 0;
+}
+
+.inv-table-sk-cell--icon {
+  width: 14px;
+  height: 14px;
+  max-width: 14px;
+  margin-inline: auto;
+  border-radius: 3px;
+}
+
+.inv-table-sk-cell--rank {
+  max-width: 28px;
+}
+
+.inv-table-sk-cell--wide {
+  max-width: 96px;
+}
+
+.inv-table-sk-row td.inv-col-name {
+  min-width: 140px;
+}
+
+.market-fundamentals-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 0 2px;
+}
+
+.market-fundamentals-bar__chip {
+  font-size: 11px;
+  line-height: 1.35;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-muted, rgb(0 0 0 / 4%));
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.market-fundamentals-bar__chip--warn {
+  color: var(--warning-text, #9a6700);
+  background: rgb(234 179 8 / 12%);
+  border-color: rgb(234 179 8 / 35%);
+}
+
+.inv-widget-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.inv-widget-subtitle {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.35;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.inv-widget-mcap {
+  display: block;
+  width: 100%;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.inv-sidebar-index-list--live .inv-sidebar-index-price.is-flash-up {
   animation: inv-price-flash-up 0.65s ease;
 }
 
-.inv-sidebar-index-row--btn.is-flash-down,
-.inv-sidebar-index-price.is-flash-down {
+.inv-sidebar-index-list--live .inv-sidebar-index-price.is-flash-down {
   animation: inv-price-flash-down 0.65s ease;
 }
 
@@ -513,7 +714,7 @@
 .inv-sidebar-index-metrics {
   display: flex;
   flex-shrink: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 4px 10px;
@@ -522,7 +723,32 @@
 }
 
 .inv-sidebar-index-list--live .inv-sidebar-index-metrics {
+  display: contents;
   font-size: 10px;
+}
+
+.inv-sidebar-index-list--live .inv-sidebar-index-price {
+  grid-column: 2;
+  justify-self: end;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.inv-sidebar-index-list--live .inv-sidebar-index-change {
+  grid-column: 3;
+  justify-self: end;
+  white-space: nowrap;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.inv-sidebar-index-list--live .inv-sidebar-index-chgpct {
+  grid-column: 4;
+  justify-self: end;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .inv-sidebar-index-price {
@@ -531,26 +757,64 @@
   font-weight: 700;
 }
 
-.inv-sidebar-index-list--live .inv-sidebar-index-price {
-  margin-right: auto;
-  text-align: left;
-  font-size: 12px;
+.inv-sidebar-live-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 10px 10px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-subtle);
 }
 
-.inv-index-clock {
-  width: 10px;
-  height: 10px;
+.inv-sidebar-live-meta::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
   border-radius: 50%;
-  border: 2px solid currentColor;
+  background: var(--text-muted);
   flex-shrink: 0;
 }
 
-.inv-index-clock.is-up {
-  color: var(--live);
+.inv-sidebar-live-meta.is-stream-live::before {
+  background: var(--live);
 }
 
-.inv-index-clock.is-down {
-  color: var(--market-up);
+.inv-sidebar-indices--compact .inv-sidebar-chart-block {
+  min-height: calc(var(--chart-height-sidebar-compact, 200px) + 44px);
+}
+
+.inv-sidebar-indices--compact .inv-sidebar-index-list--live {
+  max-height: min(200px, 28vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.inv-equity-quote-sidebar .inv-sidebar-indices--compact .inv-sidebar-index-list--live {
+  max-height: min(180px, 24vh);
+}
+
+.inv-sidebar-indices--compact .inv-sidebar-index-list--live .inv-sidebar-index-row--btn {
+  min-height: 34px;
+  padding-block: 5px;
+}
+
+.inv-sidebar-indices--compact .inv-sidebar-index-change {
+  display: none;
+}
+
+.inv-sidebar-indices--compact .inv-sidebar-index-list--live .inv-sidebar-index-row--btn {
+  grid-template-columns: minmax(0, 1fr) minmax(72px, auto) minmax(56px, auto);
+}
+
+.inv-sidebar-indices--compact .inv-sidebar-index-chgpct {
+  grid-column: 3;
 }
 
 .inv-table--investing-exact tbody tr.is-flash-up {
@@ -605,6 +869,7 @@
 
 .inv-quote-price.is-flash-up,
 .inv-index-strip-price.is-flash-up,
+.inv-world-map-index-price.is-flash-up,
 .chart-price.is-flash-up,
 .watchlist-item .is-flash-up,
 .inv-widget-row .is-flash-up {
@@ -613,6 +878,7 @@
 
 .inv-quote-price.is-flash-down,
 .inv-index-strip-price.is-flash-down,
+.inv-world-map-index-price.is-flash-down,
 .chart-price.is-flash-down,
 .watchlist-item .is-flash-down,
 .inv-widget-row .is-flash-down {
@@ -636,13 +902,6 @@
   100% {
     background: transparent;
   }
-}
-
-.inv-sidebar-live-meta {
-  padding: 6px 10px 8px;
-  font-size: 10px;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border-subtle);
 }
 
 .inv-market-empty-main {
@@ -744,6 +1003,47 @@
 
 .inv-col-rank.price-down {
   color: var(--market-down);
+}
+
+/* ─── 종목 표: 스크롤 시 헤더를 상단 크롬 바로 아래 고정 ─── */
+.page-section--market .inv-table-wrap--equities {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 768px) {
+  .inv-table-wrap--equities {
+    overflow-x: auto;
+  }
+
+  .inv-table.inv-table--equities {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  /*
+   * thead th sticky + top: scroll-padding-top 이면
+   * 네비 아래~sticky 사이에 본문 1행이 끼어 헤더가 행 사이에 보이는 현상(꼬임) 발생.
+   * 종목 표는 가로 스크롤만 허용하고 헤더는 표와 함께 세로 스크롤.
+   */
+  .inv-table-wrap--equities .inv-equities-thead th {
+    position: static;
+    top: auto;
+    z-index: auto;
+    background: var(--inv-table-header-bg, var(--surface));
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .inv-table-wrap--equities .inv-equities-thead th {
+    position: static;
+    top: auto;
+    z-index: auto;
+  }
 }
 
 /* 실시간 순위 reorder — @formkit/auto-animate FLIP */

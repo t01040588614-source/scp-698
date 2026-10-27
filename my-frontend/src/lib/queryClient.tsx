@@ -7,7 +7,7 @@ export function ReactQueryProvider({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: process.env.NODE_ENV === "development" ? 8_000 : 1000 * 60 * 5,
+        staleTime: process.env.NODE_ENV === "development" ? 8_000 : 30_000,
         retry: 2,
         retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
         refetchOnWindowFocus: true,

@@ -1,6 +1,31 @@
 import type { PortfolioItem } from "@/types/stock";
 import type { LiveStockTick } from "@/lib/wsNormalize";
 
+/** 당일 시·고·저 — WS 현재가로 고·저 wick 확장 (차트 마지막 봉과 동일 규칙) */
+export function mergeSessionOhlcWithLivePrice(
+  session: {
+    price: number;
+    open?: number;
+    high?: number;
+    low?: number;
+  },
+  livePrice?: number,
+): { open: number; high: number; low: number; price: number } {
+  const price =
+    livePrice !== undefined && Number.isFinite(livePrice) && livePrice > 0
+      ? livePrice
+      : session.price;
+  const open =
+    session.open != null && Number.isFinite(session.open) ? session.open : price;
+  let high =
+    session.high != null && Number.isFinite(session.high) ? session.high : price;
+  let low =
+    session.low != null && Number.isFinite(session.low) ? session.low : price;
+  high = Math.max(high, price);
+  low = Math.min(low, price);
+  return { open, high, low, price };
+}
+
 /** REST 시세에 WebSocket 현재가를 반영 */
 export function mergeLiveStockPrice(
   price: number,
@@ -120,5 +145,37 @@ export function applyLiveToPortfolio(item: PortfolioItem, livePrice?: number): P
     totalValue,
     profitLoss,
     profitLossPercent,
+  };
+}
+
+/** 증권 계좌 보유 — WS 현재가로 평가·손익 재계산 */
+export function applyLiveToAccountPosition<
+  T extends {
+    quantity: number | null;
+    averageCost: number | null;
+    lastValuationAmount: number | null;
+    unrealizedPnL: number | null;
+    unrealizedPnLRate: number | null;
+  },
+>(position: T, livePrice?: number): T {
+  const qty = position.quantity ?? 0;
+  const avg = position.averageCost ?? 0;
+  const restPrice =
+    qty > 0 && (position.lastValuationAmount ?? 0) > 0
+      ? (position.lastValuationAmount as number) / qty
+      : avg;
+  const price =
+    livePrice !== undefined && Number.isFinite(livePrice) && livePrice > 0
+      ? livePrice
+      : restPrice;
+  const valuation = price * qty;
+  const cost = avg * qty;
+  const pnl = valuation - cost;
+  const rate = cost > 0 ? (pnl / cost) * 100 : 0;
+  return {
+    ...position,
+    lastValuationAmount: valuation,
+    unrealizedPnL: pnl,
+    unrealizedPnLRate: rate,
   };
 }
