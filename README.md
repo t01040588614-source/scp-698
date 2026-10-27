@@ -50,6 +50,13 @@ CSS가 꼬였을 때: `stop-dev.bat` 후 `주식대시보드_실행.bat` (기본
 - Node 18+ (`my-frontend`)
 - 프론트 `.env.local`: `STOCK_API_PROXY=http://127.0.0.1:8000`
 
+### Render 무료 클라우드 배포 (팀 공유 URL, PC 불필요)
+
+루트 **`render.yaml`** Blueprint → [docs/DEPLOY_RENDER.md](./docs/DEPLOY_RENDER.md)
+
+1. Render → **New → Blueprint** → 이 GitHub repo 연결 → **Apply**
+2. 팀에게 **`marketlens-web` HTTPS URL**만 공유
+
 ### DOCX 완전판 (PostgreSQL + Docker)
 
 ```powershell

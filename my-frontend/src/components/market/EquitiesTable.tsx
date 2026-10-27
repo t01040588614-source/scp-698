@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import AppLink from "@/components/common/AppLink";
 import { useRouter } from "next/navigation";
 import {
   estimatedPerformance,
@@ -9,7 +9,9 @@ import {
   sortEquities,
   technicalSignals,
   equityAiSummary,
+  equityPriceDecimals,
   formatEquityMarketCap,
+  formatEquityPriceWithUnit,
   formatEquityTurnover,
   tossStyleTradeRatio,
   type EquityFilter,
@@ -17,31 +19,46 @@ import {
   type SortDir,
   type SortKey,
   quoteMarketFromEquity,
-  resolveLiveEquityQuote,
+  resolveLiveEquityQuoteFromMaps,
 } from "@/lib/equityQuotes";
+import { formatPeRatio, peRatioTitle } from "@/lib/fundamentalsDisplay";
 import { formatPercent, formatPrice, priceClass } from "@/lib/format";
-import LoadingState from "@/components/common/LoadingState";
+import type { StocksSourceLabel } from "@/lib/mapStocksSource";
+import InvTableSkeleton from "@/components/common/InvTableSkeleton";
 import WatchlistStar from "@/components/market/WatchlistStar";
+import { readLocalWatchlist } from "@/lib/localWatchlist";
+import {
+  readHubEquitiesSortPrefs,
+  writeHubEquitiesSortPrefs,
+  type HubEquitiesMarket,
+} from "@/lib/hubEquitiesSortPrefs";
 import StockNameWithLogo from "@/components/market/StockNameWithLogo";
+import { useClientLocaleTime } from "@/hooks/useClientLocaleTime";
 import { usePriceFlash } from "@/hooks/usePriceFlash";
-import { useSmoothReorder } from "@/hooks/useSmoothReorder";
 import { rankMovePriceClass, useRankMoveTone } from "@/hooks/useRankMoveTone";
 import type { LiveStockTick } from "@/lib/wsNormalize";
+import { pickWsQuote } from "@/lib/wsSymbolKey";
 
 type IndexSelect = "ALL" | "KOSPI" | "KOSDAQ" | "KOSPI50" | "US50" | "NASDAQ" | "NYSE";
+type EquityMarket = "korea" | "us" | "asia" | "europe";
 
 type EquitiesTableProps = {
   rows: EquityQuote[];
   isLoading?: boolean;
   liveQuotes?: Record<string, number>;
   liveTicks?: Record<string, LiveStockTick>;
-  market?: "korea" | "us";
+  market?: EquityMarket;
   sectorFilter?: string | null;
   investingExact?: boolean;
   footerHref?: string;
   footerLabel?: string;
   updatedLabel?: string;
   liveStream?: boolean;
+  stocksSource?: StocksSourceLabel;
+  /** 허브 등 — 표시 행 수 제한 (0이면 전체) */
+  previewLimit?: number;
+  /** /markets 허브 — 열 정렬(등락률·거래대금 등) localStorage 기억 */
+  persistSortPrefs?: boolean;
 };
 
 function SortHeader({
@@ -79,14 +96,8 @@ const VIEW_TABS = [
 ] as const;
 type ViewTab = (typeof VIEW_TABS)[number]["id"];
 
-function formatMarketCap(value: number | undefined, currency: "KRW" | "USD") {
+function formatMarketCap(value: number | undefined, currency: string) {
   return formatEquityMarketCap(value, currency);
-}
-
-function formatPriceWithUnit(price: number, currency: "KRW" | "USD", decimals: number) {
-  const formatted = formatPrice(price, decimals);
-  if (formatted === "-") return "—";
-  return currency === "KRW" ? `${formatted}원` : `$${formatted}`;
 }
 
 function TossTradeRatioBar({ symbol }: { symbol: string }) {
@@ -115,19 +126,46 @@ export default function EquitiesTable({
   footerLabel = "전체 종목 보기",
   updatedLabel,
   liveStream = false,
+  stocksSource,
+  previewLimit = 0,
+  persistSortPrefs = false,
 }: EquitiesTableProps) {
   const router = useRouter();
-  const [clock, setClock] = useState(() => new Date());
+  const hubMarket = market as HubEquitiesMarket;
+  const [watchlistTick, setWatchlistTick] = useState(0);
+
   useEffect(() => {
-    const id = setInterval(() => setClock(new Date()), 1000);
-    return () => clearInterval(id);
+    const sync = () => setWatchlistTick((n) => n + 1);
+    window.addEventListener("local-watchlist-changed", sync);
+    return () => window.removeEventListener("local-watchlist-changed", sync);
   }, []);
+
+  const watchlistKeys = useMemo(() => {
+    void watchlistTick;
+    const keys = new Set<string>();
+    for (const entry of readLocalWatchlist()) {
+      keys.add(`${entry.market}:${entry.symbol}`);
+    }
+    return keys;
+  }, [watchlistTick]);
+  const liveClock = useClientLocaleTime("hms") ?? "";
+  const intlMarket = market === "asia" || market === "europe";
   const [filter, setFilter] = useState<EquityFilter>(market === "korea" ? "kospi" : "all");
-  const [sortKey, setSortKey] = useState<SortKey>("changePercent");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [sortKey, setSortKey] = useState<SortKey>(() => {
+    if (persistSortPrefs) {
+      return readHubEquitiesSortPrefs(hubMarket)?.sortKey ?? "changePercent";
+    }
+    return "changePercent";
+  });
+  const [sortDir, setSortDir] = useState<SortDir>(() => {
+    if (persistSortPrefs) {
+      return readHubEquitiesSortPrefs(hubMarket)?.sortDir ?? "desc";
+    }
+    return "desc";
+  });
   const [query, setQuery] = useState("");
   const [indexSelect, setIndexSelect] = useState<IndexSelect>(
-    market === "korea" ? "KOSPI50" : "US50"
+    market === "korea" ? "KOSPI50" : market === "us" ? "US50" : "ALL"
   );
   const [viewTab, setViewTab] = useState<ViewTab>("가격");
 
@@ -138,20 +176,35 @@ export default function EquitiesTable({
     }
   }, [viewTab]);
 
+  /** 한국: 「전체」칩인데 지수가 코스피50이면 예전 로직으로 50종만 남아 필터가 먹통처럼 보임 */
+  useEffect(() => {
+    if (market !== "korea" || filter !== "all") return;
+    if (indexSelect === "KOSPI50") setIndexSelect("ALL");
+  }, [market, filter, indexSelect]);
+
   const quickFilters = useMemo(() => {
     const items: { id: EquityFilter; label: string }[] = [{ id: "all", label: "전체" }];
     if (market === "korea") {
       items.push({ id: "kospi", label: "KOSPI" }, { id: "kosdaq", label: "KOSDAQ" });
-    } else {
+    } else if (market === "us") {
       items.push({ id: "nasdaq", label: "NASDAQ" }, { id: "nyse", label: "NYSE" });
     }
     items.push(
       { id: "gainers", label: "상승" },
       { id: "losers", label: "하락" },
-      { id: "volume", label: "거래량" }
+      { id: "volume", label: "거래량" },
+      { id: "watchlist", label: "관심" }
     );
     return items;
   }, [market]);
+
+  const restoreSavedSort = () => {
+    if (!persistSortPrefs) return;
+    const saved = readHubEquitiesSortPrefs(hubMarket);
+    if (!saved) return;
+    setSortKey(saved.sortKey);
+    setSortDir(saved.sortDir);
+  };
 
   const applyQuickFilter = (id: EquityFilter) => {
     setFilter(id);
@@ -164,6 +217,7 @@ export default function EquitiesTable({
       id === "gainers" ||
       id === "losers" ||
       id === "volume" ||
+      id === "watchlist" ||
       id === "nasdaq" ||
       id === "nyse"
     ) {
@@ -178,14 +232,22 @@ export default function EquitiesTable({
     } else if (id === "volume") {
       setSortKey("volume");
       setSortDir("desc");
+    } else if (id === "watchlist") {
+      setSortKey("changePercent");
+      setSortDir("desc");
+      setIndexSelect("ALL");
+    } else if (id === "all") {
+      restoreSavedSort();
     }
   };
 
   const onSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setSortDir(key === "name" ? "asc" : "desc");
+    const nextDir: SortDir =
+      sortKey === key ? (sortDir === "asc" ? "desc" : "asc") : key === "name" ? "asc" : "desc";
+    setSortKey(key);
+    setSortDir(nextDir);
+    if (persistSortPrefs) {
+      writeHubEquitiesSortPrefs(hubMarket, { sortKey: key, sortDir: nextDir });
     }
   };
 
@@ -195,7 +257,7 @@ export default function EquitiesTable({
       if (value === "KOSPI" || value === "KOSPI50") setFilter("kospi");
       else if (value === "KOSDAQ") setFilter("kosdaq");
       else setFilter("all");
-    } else {
+    } else if (market === "us") {
       if (value === "NASDAQ") setFilter("nasdaq");
       else if (value === "NYSE") setFilter("nyse");
       else setFilter("all");
@@ -203,14 +265,29 @@ export default function EquitiesTable({
   };
 
   const onCountryChange = (value: string) => {
-    if (value === "WORLD") router.push("/markets");
-    if (value === "US" && market === "korea") router.push("/us");
-    if (value === "KR" && market === "us") router.push("/korea");
+    let href: string | null = null;
+    if (value === "WORLD") href = "/markets";
+    else if (value === "US" && market !== "us") href = "/us";
+    else if (value === "KR" && market !== "korea") href = "/korea";
+    else if (value === "ASIA") href = "/markets?region=asia";
+    else if (value === "EUROPE") href = "/markets?region=europe";
+    if (!href) return;
+
+    router.push(href);
+    window.setTimeout(() => {
+      const path = window.location.pathname || "/";
+      if (path !== href && !path.startsWith(`${href}/`)) {
+        window.location.assign(href);
+      }
+    }, 350);
   };
+
+  const marketSelectValue =
+    market === "korea" ? "KR" : market === "us" ? "US" : market === "asia" ? "ASIA" : "EUROPE";
 
   const sortMetrics = useCallback(
     (row: EquityQuote) => {
-      const live = resolveLiveEquityQuote(row, liveQuotes[row.symbol], liveTicks[row.symbol]);
+      const live = resolveLiveEquityQuoteFromMaps(row, liveQuotes, liveTicks);
       return {
         price: live.price,
         changePercent: live.changePercent,
@@ -233,17 +310,22 @@ export default function EquitiesTable({
         (r) => r.name.toLowerCase().includes(q) || r.symbol.toLowerCase().includes(q)
       );
     }
+    if (filter === "watchlist") {
+      list = list.filter((r) => {
+        const qMarket = quoteMarketFromEquity(r);
+        return watchlistKeys.has(`${qMarket}:${r.symbol}`);
+      });
+    }
+
     const rankingFilter =
       filter === "gainers" || filter === "losers" || filter === "volume";
-    const useCap50Pool =
-      !rankingFilter && filter !== "kosdaq" && filter !== "nasdaq" && filter !== "nyse";
 
-    if (indexSelect === "KOSPI50" && useCap50Pool) {
+    if (indexSelect === "KOSPI50" && !rankingFilter && filter === "kospi") {
       list = list
         .filter((r) => r.market === "KOSPI")
         .sort((a, b) => (b.marketCap ?? 0) - (a.marketCap ?? 0) || b.volume - a.volume)
         .slice(0, 50);
-    } else if (indexSelect === "US50" && useCap50Pool) {
+    } else if (indexSelect === "US50" && !rankingFilter && filter === "all") {
       list = list
         .sort((a, b) => (b.marketCap ?? 0) - (a.marketCap ?? 0) || b.volume - a.volume)
         .slice(0, 50);
@@ -252,32 +334,34 @@ export default function EquitiesTable({
       list = sortEquities(list, sortKey, sortDir, sortMetrics);
     }
     return list;
-  }, [rows, filter, query, sortKey, sortDir, sectorFilter, indexSelect, sortMetrics]);
+  }, [rows, filter, query, sortKey, sortDir, sectorFilter, indexSelect, sortMetrics, watchlistKeys]);
 
-  const liveClock = clock.toLocaleTimeString("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-  const timeStr = liveStream ? liveClock : (updatedLabel ?? liveClock);
+  const visibleRows = useMemo(() => {
+    if (!previewLimit || previewLimit <= 0) return displayRows;
+    return displayRows.slice(0, previewLimit);
+  }, [displayRows, previewLimit]);
+
+  const truncated = previewLimit > 0 && displayRows.length > visibleRows.length;
+
+  const timeStr = liveStream
+    ? liveClock || updatedLabel || "—"
+    : updatedLabel ?? liveClock;
 
   const livePriceMap = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const row of displayRows) {
-      const live = liveQuotes[row.symbol];
+    for (const row of visibleRows) {
+      const live = pickWsQuote(row.symbol, liveQuotes);
       if (live !== undefined) map[row.symbol] = live;
     }
     return map;
-  }, [displayRows, liveQuotes]);
+  }, [visibleRows, liveQuotes]);
 
   const priceFlash = usePriceFlash(livePriceMap);
-  const [rankTbodyRef] = useSmoothReorder();
 
   const showLiveRank = liveStream && viewTab === "가격";
   const rankOrderSymbols = useMemo(
-    () => (showLiveRank || viewTab === "차트" ? displayRows.map((r) => r.symbol) : []),
-    [showLiveRank, viewTab, displayRows]
+    () => (showLiveRank || viewTab === "차트" ? visibleRows.map((r) => r.symbol) : []),
+    [showLiveRank, viewTab, visibleRows]
   );
   const rankTones = useRankMoveTone(
     rankOrderSymbols,
@@ -301,21 +385,19 @@ export default function EquitiesTable({
           <WatchlistStar symbol={row.symbol} market={qMarket} name={row.name} />
         </td>
         <td className="inv-col-name inv-symbol-cell">
-          <Link href={`/quote/${qMarket}/${row.symbol}`} className="inv-name-link inv-name-link--with-logo">
+          <AppLink href={`/quote/${qMarket}/${row.symbol}`} className="inv-name-link inv-name-link--with-logo">
             <StockNameWithLogo market={qMarket} symbol={row.symbol} name={row.name} size={24} />
-          </Link>
+          </AppLink>
         </td>
       </>
     );
   };
 
   const renderBodyRow = (row: EquityQuote) => {
-    const tick = liveTicks[row.symbol];
-    const live = liveQuotes[row.symbol];
-    const liveMerged = resolveLiveEquityQuote(row, live, tick);
+    const liveMerged = resolveLiveEquityQuoteFromMaps(row, liveQuotes, liveTicks);
     const price = liveMerged.price;
     const changePercent = liveMerged.changePercent;
-    const decimals = row.currency === "KRW" ? 0 : 2;
+    const decimals = equityPriceDecimals(row.currency);
     const pctClass = priceClass(changePercent);
     const qMarket = quoteMarketFromEquity(row);
     const flashDir = priceFlash[row.symbol];
@@ -362,7 +444,9 @@ export default function EquitiesTable({
         <tr key={row.symbol} className={flashRowClass}>
           {renderNameCells(row)}
           <td className="tabular">{formatMarketCap(row.marketCap, row.currency)}</td>
-          <td className="tabular">{row.peRatio && row.peRatio > 0 ? row.peRatio.toFixed(2) : "—"}</td>
+          <td className="tabular" title={peRatioTitle(row.peRatio)}>
+            {formatPeRatio(row.peRatio)}
+          </td>
           <td className="tabular">{row.eps && row.eps !== 0 ? row.eps.toFixed(2) : "—"}</td>
           <td className="inv-hide-sm">{row.sector || "—"}</td>
           <td className={`tabular ${pctClass}`}>{formatPercent(changePercent)}</td>
@@ -385,12 +469,12 @@ export default function EquitiesTable({
           <td className={`inv-last tabular ${pctClass}${flashCell}`}>{formatPrice(price, decimals)}</td>
           <td className={`tabular ${pctClass}`}>{formatPercent(changePercent)}</td>
           <td>
-            <Link
+            <AppLink
               href={`/charts?market=${qMarket}&symbol=${encodeURIComponent(row.symbol)}`}
               className="inv-name-link"
             >
               차트 보기
-            </Link>
+            </AppLink>
           </td>
         </tr>
       );
@@ -412,7 +496,7 @@ export default function EquitiesTable({
         )}
         {renderNameCells(row)}
         <td className={`inv-toss-price tabular ${pctClass}${flashCell}`}>
-          {formatPriceWithUnit(price, row.currency, decimals)}
+          {formatEquityPriceWithUnit(price, row.currency, decimals)}
         </td>
         <td className="inv-toss-pct tabular">
           <span className={`inv-pct-badge ${pctClass}${pctBadgeClass}`}>
@@ -439,6 +523,22 @@ export default function EquitiesTable({
       </tr>
     );
   };
+
+  const renderTossColGroup = (withRank: boolean) => (
+    <colgroup>
+      {withRank ? <col className="inv-col-rank-col" /> : null}
+      <col className="inv-col-check-col" />
+      <col className="inv-col-star-col" />
+      <col className="inv-col-name-col" />
+      <col className="inv-toss-col-price" />
+      <col className="inv-toss-col-pct" />
+      <col className="inv-toss-col-turnover" />
+      <col className="inv-toss-col-mcap" />
+      <col className="inv-toss-col-ratio" />
+      <col className="inv-toss-col-sector" />
+      <col className="inv-toss-col-ai" />
+    </colgroup>
+  );
 
   const renderHead = () => {
     if (viewTab === "실적 및 예측") {
@@ -553,13 +653,15 @@ export default function EquitiesTable({
             <span className="inv-filter-label">시장</span>
             <select
               className="inv-filter-select"
-              value={market === "korea" ? "KR" : "US"}
+              value={marketSelectValue}
               aria-label="시장 선택"
               onChange={(e) => onCountryChange(e.target.value)}
             >
               <option value="WORLD">세계 시장</option>
               <option value="KR">대한민국</option>
+              <option value="ASIA">아시아</option>
               <option value="US">미국</option>
+              <option value="EUROPE">유럽</option>
             </select>
           </label>
           <label className="inv-filter-field">
@@ -569,8 +671,11 @@ export default function EquitiesTable({
               value={indexSelect}
               aria-label={market === "korea" ? "지수 선택" : "종목 범위"}
               onChange={(e) => onIndexChange(e.target.value as IndexSelect)}
+              disabled={intlMarket}
             >
-              {market === "korea" ? (
+              {intlMarket ? (
+                <option value="ALL">전체</option>
+              ) : market === "korea" ? (
                 <>
                   <option value="KOSPI50">코스피 50</option>
                   <option value="ALL">전체</option>
@@ -598,8 +703,10 @@ export default function EquitiesTable({
             onChange={(e) => setQuery(e.target.value)}
             aria-label="종목 검색"
           />
-          <span className="inv-toolbar-meta inv-table-filters-meta">
-            {displayRows.length}종목 · {timeStr}
+          <span className="inv-toolbar-meta inv-table-filters-meta" suppressHydrationWarning>
+            {truncated
+              ? `${visibleRows.length}/${displayRows.length}종목 · ${timeStr}`
+              : `${displayRows.length}종목 · ${timeStr}`}
           </span>
         </div>
       )}
@@ -637,33 +744,51 @@ export default function EquitiesTable({
         </div>
       )}
 
-      {isLoading && displayRows.length === 0 && <LoadingState rows={5} />}
+      {isLoading && displayRows.length === 0 && (
+        <InvTableSkeleton tableClass={tableClass} headRow={renderHead()} rowCount={8} />
+      )}
 
       {!isLoading && displayRows.length === 0 && (
         <div className="inv-table-empty">
           <strong>표시할 종목이 없습니다</strong>
-          {sectorFilter ? "섹터 필터를 해제하거나 검색어를 바꿔 보세요." : "검색어나 필터 조건을 조정해 보세요."}
+          {filter === "watchlist"
+            ? "별 아이콘으로 관심종목을 추가하거나, /watchlist에서 목록을 확인하세요."
+            : sectorFilter
+              ? "섹터 필터를 해제하거나 검색어를 바꿔 보세요."
+              : "검색어나 필터 조건을 조정해 보세요."}
         </div>
       )}
 
-      {displayRows.length > 0 && (
-        <div className="inv-table-wrap">
+      {visibleRows.length > 0 && (
+        <div className="inv-table-wrap inv-table-wrap--equities">
           <table className={tableClass}>
-            <thead>{renderHead()}</thead>
-            <tbody ref={rankTbodyRef} className="inv-smooth-rank">
-              {displayRows.map((row) => renderBodyRow(row))}
+            {tossPriceView ? renderTossColGroup(showLiveRank) : null}
+            <thead className="inv-equities-thead">{renderHead()}</thead>
+            <tbody className="inv-equities-tbody">
+              {visibleRows.map((row) => renderBodyRow(row))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {truncated && footerHref && (
+        <p className="inv-table-preview-more">
+          {displayRows.length.toLocaleString("ko-KR")}종목 중 상위 {visibleRows.length}개만 표시 중입니다.{" "}
+          <AppLink href={footerHref}>전체 보기</AppLink>
+        </p>
       )}
 
       <footer className="inv-table-footer">
         <span>
           {viewTab === "실적 및 예측" || viewTab === "기술적 분석"
             ? "기간·기술 지표는 참고용 추정치입니다. 상세는 종목 페이지를 확인하세요."
-            : "한·미 시세는 WebSocket 스트림 기준으로 표시됩니다 (현재 연결 상태 반영)."}
+            : stocksSource === "reference"
+              ? "참고 시세입니다. 시가총액은 KRX, 가격·PER은 갱신 후 WS·표에 반영됩니다."
+              : liveStream
+                ? "가격 · WebSocket(장중 ~0.35초). 시가총액 KRX/Yahoo, PER Yahoo trailing."
+                : "가격 · REST 폴링 + WebSocket. 시가총액·PER은 백엔드 캐시 기준."}
         </span>
-        {footerHref && <Link href={footerHref}>{footerLabel}</Link>}
+        {footerHref && <AppLink href={footerHref}>{footerLabel}</AppLink>}
       </footer>
     </section>
   );

@@ -9,31 +9,52 @@ from app.api.routes import (
     accounts,
     auth,
     chat,
+    config_public,
     content,
     health,
     integrations,
     kr_dashboard,
     market,
+    me_data,
     oauth_social,
     portfolio,
     stocks,
     stocks_docx_compat,
+    tools,
     ws,
 )
 from app.core.config import settings
 from app.db.session import close_db, init_db
+from app.services.kis_portfolio_sync import kis_portfolio_sync
+from app.services.kis_realtime_service import kis_realtime
 from app.services.market_data import market_data
+from app.services.price_alert_worker import price_alert_worker
 from app.services.websocket_manager import ws_manager
 
 logger = logging.getLogger(__name__)
 
+_NOISY_LOGGERS = (
+    "aiosqlite",
+    "peewee",
+    "urllib3",
+    "yfinance",
+    "charset_normalizer",
+    "httpcore",
+    "httpx",
+    "sqlalchemy.engine",
+)
+
+
+def _configure_logging() -> None:
+    level = logging.DEBUG if settings.DEBUG else logging.INFO
+    logging.basicConfig(level=level, format="%(levelname)s %(name)s: %(message)s")
+    for name in _NOISY_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    logging.basicConfig(
-        level=logging.DEBUG if settings.DEBUG else logging.INFO,
-        format="%(levelname)s %(name)s: %(message)s",
-    )
+async def lifespan(_app: FastAPI):
+    _configure_logging()
     try:
         await init_db()
         from app.db.session import async_session_maker
@@ -50,7 +71,13 @@ async def lifespan(app: FastAPI):
         logger.exception("Market data loop start failed: %s", exc)
 
     await ws_manager.start_broadcast_loop()
+    await price_alert_worker.start()
+    await kis_realtime.start()
+    await kis_portfolio_sync.start()
     yield
+    await kis_portfolio_sync.stop()
+    await kis_realtime.stop()
+    await price_alert_worker.stop()
     await ws_manager.stop_broadcast_loop()
     await market_data.stop_refresh_loop()
     try:
@@ -66,9 +93,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_cors_regex = settings.CORS_ORIGIN_REGEX.strip() or None
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=_cors_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -76,6 +105,8 @@ app.add_middleware(
 
 app.include_router(health.router, prefix=f"{settings.API_V1_PREFIX}/health")
 app.include_router(auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["인증"])
+app.include_router(me_data.router, prefix=f"{settings.API_V1_PREFIX}")
+app.include_router(tools.router, prefix=f"{settings.API_V1_PREFIX}")
 app.include_router(
     oauth_social.router,
     prefix=f"{settings.API_V1_PREFIX}/auth/oauth",
@@ -91,6 +122,7 @@ app.include_router(
 )
 app.include_router(kr_dashboard.router, prefix=f"{settings.API_V1_PREFIX}")
 app.include_router(market.router, prefix=f"{settings.API_V1_PREFIX}")
+app.include_router(config_public.router, prefix=f"{settings.API_V1_PREFIX}")
 app.include_router(content.router, prefix=f"{settings.API_V1_PREFIX}", tags=["콘텐츠"])
 app.include_router(chat.router, prefix=f"{settings.API_V1_PREFIX}/chat")
 app.include_router(
@@ -106,7 +138,7 @@ app.include_router(ws.router, prefix=f"{settings.API_V1_PREFIX}/ws")
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
+async def http_exception_handler(_request: Request, exc: HTTPException):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 

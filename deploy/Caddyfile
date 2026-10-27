@@ -1,0 +1,10 @@
+# 팀 공유: 웹·REST·WebSocket 한 포트(80)로 묶음 — 방화벽 80만 열면 됨
+:80 {
+	@api path /api/v1/* /api/stocks* /api/accounts*
+	handle @api {
+		reverse_proxy api:8000
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}

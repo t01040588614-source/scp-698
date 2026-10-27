@@ -19,11 +19,21 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "change-this-secret-key"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 14
+
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_USE_TLS: bool = True
 
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
+    # Render 등: https://*.onrender.com 프론트 허용 (비우면 미사용)
+    CORS_ORIGIN_REGEX: str = ""
 
     # 주식·연동 API (비워두면 무료 Yahoo/FDR, UI/JSON 저장 가능)
     KOREA_STOCK_API_KEY: str = ""
@@ -40,6 +50,8 @@ class Settings(BaseSettings):
     KAKAO_REST_API_KEY: str = ""
     KAKAO_CLIENT_SECRET: str = ""
     FCM_SERVER_KEY: str = ""
+    FCM_SERVICE_ACCOUNT_JSON: str = ""
+    FCM_SERVICE_ACCOUNT_FILE: str = ""
     NEWS_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
@@ -64,18 +76,34 @@ class Settings(BaseSettings):
     OAUTH_BACKEND_BASE: str = "http://127.0.0.1:8000"
     OAUTH_FRONTEND_BASE: str = "http://localhost:3000"
 
+    FIREBASE_API_KEY: str = ""
+    FIREBASE_AUTH_DOMAIN: str = ""
+    FIREBASE_PROJECT_ID: str = ""
+    FIREBASE_MESSAGING_SENDER_ID: str = ""
+    FIREBASE_APP_ID: str = ""
+    FIREBASE_VAPID_KEY: str = ""
+
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
     CACHE_TTL: int = 300
 
+    # 시세 캐시 백그라운드 갱신(초) — 비우면 장 세션별 기본값
+    MARKET_REFRESH_FULL_SEC: int | None = None
+    MARKET_REFRESH_FAST_SEC: int | None = None
+    MARKET_REFRESH_INDEX_SEC: int | None = None
+    MARKET_WS_BROADCAST_SEC: float | None = None
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
-    @field_validator("INTEGRATIONS_ALLOW_UI_SAVE", mode="before")
+    @field_validator("DATABASE_URL", mode="before")
     @classmethod
-    def empty_optional_bool(cls, value: Any) -> bool | None:
-        if value is None or (isinstance(value, str) and value.strip() == ""):
-            return None
-        return value
+    def normalize_database_url(cls, value: Any) -> str:
+        if not isinstance(value, str):
+            return str(value)
+        raw = value.strip()
+        if raw.startswith("postgres://"):
+            return "postgresql+asyncpg://" + raw.removeprefix("postgres://")
+        return raw
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

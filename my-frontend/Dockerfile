@@ -1,22 +1,33 @@
-FROM node:20-alpine AS deps
+# Rebuild with --pull periodically; pin digest in CI for reproducible scans.
+ARG NODE_IMAGE=node:20-alpine
+
+FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
+RUN apk upgrade --no-cache
 COPY package.json package-lock.json* ./
 RUN npm ci
 
-FROM node:20-alpine AS builder
+FROM ${NODE_IMAGE} AS builder
 WORKDIR /app
+RUN apk upgrade --no-cache
 ARG STOCK_API_PROXY=http://api:8000
-ENV STOCK_API_PROXY=${STOCK_API_PROXY}
-ENV NEXT_TELEMETRY_DISABLED=1
+ARG NEXT_PUBLIC_QUOTE_REFRESH_PRESET=live
+ARG NEXT_PUBLIC_WS_URL=
+ENV STOCK_API_PROXY=${STOCK_API_PROXY} \
+    NEXT_PUBLIC_QUOTE_REFRESH_PRESET=${NEXT_PUBLIC_QUOTE_REFRESH_PRESET} \
+    NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL} \
+    NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine AS runner
+FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+RUN apk upgrade --no-cache \
+    && addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static

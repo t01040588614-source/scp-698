@@ -1,0 +1,59 @@
+# MarketLens — Render Free Blueprint
+# Dashboard → New → Blueprint → GitHub repo 연결 후 이 파일로 생성
+# 무료: Postgres 1 + Web 2 (API + 프론트). Redis 없음(메모리 폴백).
+
+databases:
+  - name: marketlens-db
+    plan: free
+    databaseName: krstock
+    user: krstock
+
+services:
+  - type: web
+    name: marketlens-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./stock-backend/Dockerfile
+    dockerContext: ./stock-backend
+    healthCheckPath: /api/v1/health
+    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: marketlens-db
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: REDIS_URL
+        value: ""
+      - key: INTEGRATIONS_ALLOW_UI_SAVE
+        value: "false"
+      - key: CORS_ORIGIN_REGEX
+        value: "^https://.*\\.onrender\\.com$"
+      - key: CORS_ORIGINS
+        value: '["http://localhost:3000","http://127.0.0.1:3000"]'
+
+  - type: web
+    name: marketlens-web
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./my-frontend/Dockerfile
+    dockerContext: ./my-frontend
+    healthCheckPath: /markets
+    envVars:
+      - key: STOCK_API_PROXY
+        fromService:
+          type: web
+          name: marketlens-api
+          property: host
+      - key: NEXT_PUBLIC_WS_URL
+        fromService:
+          type: web
+          name: marketlens-api
+          property: host
+      - key: NEXT_PUBLIC_QUOTE_REFRESH_PRESET
+        value: live
