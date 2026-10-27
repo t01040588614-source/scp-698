@@ -38,6 +38,15 @@ services:
         value: "5"
       - key: DATABASE_MAX_OVERFLOW
         value: "5"
+      # 무료 인스턴스(0.1 CPU) 과부하 방지 — 장중 기본값(1~3초 갱신, 0.35초 푸시)은 너무 무거움
+      - key: MARKET_REFRESH_FULL_SEC
+        value: "60"
+      - key: MARKET_REFRESH_FAST_SEC
+        value: "15"
+      - key: MARKET_REFRESH_INDEX_SEC
+        value: "30"
+      - key: MARKET_WS_BROADCAST_SEC
+        value: "2"
 
   - type: web
     name: marketlens-web
