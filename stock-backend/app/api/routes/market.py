@@ -6,10 +6,10 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.services import index_service
-from app.services.stock_logo_service import fetch_stock_logo
 from app.services.exchange_calendar import export_holiday_dates_for_frontend
 from app.services.market_data import market_data
-from app.services.market_session import full_session_response
+from app.services.market_session import full_session_response, is_any_regular_session
+from app.services.stock_logo_service import fetch_stock_logo
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ async def list_indices(
     category: str | None = Query(None, description="indices|forex|commodity"),
 ):
     id_list = [s.strip() for s in ids.split(",")] if ids else None
-    market_data.ensure_fresh(max_age_sec=25)
+    market_data.ensure_fresh(max_age_sec=10 if is_any_regular_session() else 25)
 
     cached = _filter_index_rows(market_data.get_indices(), id_list, category)
     if cached:
@@ -94,9 +94,7 @@ async def list_indices(
     )
 
 
-async def _refresh_indices_background(
-    id_list: list[str] | None, category: str | None
-) -> None:
+async def _refresh_indices_background(id_list: list[str] | None, category: str | None) -> None:
     try:
         rows = await index_service.get_indices(id_list, category=category)
         if rows:
@@ -120,6 +118,29 @@ async def market_session():
 async def market_holidays():
     """프론트 오프라인 fallback용 휴장일 목록 (KRX·NYSE CSV와 동기)."""
     return export_holiday_dates_for_frontend()
+
+
+@router.get("/symbols")
+async def list_cached_symbols():
+    """캐시에 있는 전 종목 코드 — WebSocket 전역 구독·갱신용."""
+    market_data.ensure_fresh()
+    symbols = market_data.get_all_symbols()
+    return {
+        "symbols": symbols,
+        "count": len(symbols),
+        "korea": len(market_data.get_by_type("korea")),
+        "us": len(market_data.get_by_type("us")),
+        "asia": len(market_data.get_by_type("asia")),
+        "europe": len(market_data.get_by_type("europe")),
+    }
+
+
+@router.get("/kis-realtime")
+async def kis_realtime_status():
+    """KIS H0STCNT0 WebSocket PoC 상태 (HTS급 체결 틱 — 키·장중 필요)."""
+    from app.services.kis_realtime_service import kis_realtime
+
+    return kis_realtime.status()
 
 
 @router.get("/cache-status")

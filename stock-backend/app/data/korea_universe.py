@@ -33,7 +33,7 @@ def _kq(symbol: str, name: str, sector: str = "기술") -> KoreaSymbolMeta:
 
 KOREA_UNIVERSE: list[KoreaSymbolMeta] = [
     _ks("005930", "삼성전자", "기술"),
-    _ks("000660", "SK hynix", "기술"),
+    _ks("000660", "SK하이닉스", "기술"),
     _ks("005380", "현대차", "소비재"),
     _ks("005490", "POSCO홀딩스", "소재"),
     _ks("035420", "NAVER", "기술"),

@@ -2,6 +2,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from app.data.korea_universe import KOREA_UNIVERSE
+from app.data.stock_display_names import resolve_display_name
 from app.services.stock_providers.base import StockProvider
 from app.services.stock_providers.yahoo_batch import fetch_yahoo_batch
 
@@ -25,20 +26,24 @@ class YahooKoreaProvider(StockProvider):
         meta = self._meta_by_symbol.get(patch["symbol"], {})
         return {
             "symbol": patch["symbol"],
-            "name": meta.get("name") or patch["symbol"],
+            "name": resolve_display_name(
+                patch["symbol"],
+                stock_type="korea",
+                current=meta.get("name"),
+            ),
             "market": meta.get("market", "KOSPI"),
             "sector": meta.get("sector") or "",
             "price": patch["price"],
             "change": patch["change"],
             "change_percent": patch["change_percent"],
             "volume": patch.get("volume", 0),
-            "market_cap": 0.0,
+            "market_cap": float(patch.get("market_cap") or 0),
             "high": patch.get("high", patch["price"]),
             "low": patch.get("low", patch["price"]),
             "open": patch.get("open", patch["price"]),
             "previous_close": patch.get("previous_close", patch["price"]),
-            "pe_ratio": 0.0,
-            "eps": 0.0,
+            "pe_ratio": float(patch.get("pe_ratio") or 0),
+            "eps": float(patch.get("eps") or 0),
         }
 
     def _fetch_batch_sync(self, symbols: list[str] | None = None) -> list[dict]:

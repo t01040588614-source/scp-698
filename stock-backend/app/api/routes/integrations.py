@@ -9,8 +9,8 @@ from app.integrations.registry import list_integrations
 from app.integrations.sms_client import SMSDeliveryError, send_sms
 from app.schemas.broker import KisVerifyRequest, KisVerifyResponse
 from app.schemas.integrations import FcmTestBody, IntegrationKeysUpdate, SmsTestBody
-from app.services.phone_verification import normalize_phone
 from app.services.market_data import market_data
+from app.services.phone_verification import normalize_phone
 
 router = APIRouter(tags=["연동 (API Key)"])
 

@@ -18,9 +18,12 @@ MAX_MESSAGE_LEN = 4000
 
 SYSTEM_PROMPT = """당신은 MarketLens 주식·금융 대시보드의 AI 어시스턴트입니다.
 한국어로 답변하세요. 답변은 짧은 요약(1~2문장) 후 필요 시 번호 목록·소제목으로 구조화하세요.
-다룰 수 있는 주제: 한국(KOSPI/KOSDAQ)·미국(NYSE/NASDAQ) 시장, 지표, 용어, 차트·스크리너·관심목록·포트폴리오 화면 사용법.
-[사용자 컨텍스트]와 [앱 시세 스냅샷]이 주어지면 이를 우선 참고하되, 스냅샷에 없는 수치는 지어내지 마세요.
-구체적인 매수·매도·목표가·투자 권유는 하지 마세요. 마지막 줄에 「투자 판단은 본인 책임이며, 제공 정보는 참고용입니다.」를 넣으세요.
+다룰 수 있는 주제: 한국(KOSPI/KOSDAQ)·미국(NYSE/NASDAQ) 시장, 지표, 용어,
+차트·스크리너·관심목록·포트폴리오 화면 사용법.
+[사용자 컨텍스트]와 [앱 시세 스냅샷]이 주어지면 이를 우선 참고하되,
+스냅샷에 없는 수치는 지어내지 마세요.
+구체적인 매수·매도·목표가·투자 권유는 하지 마세요.
+마지막 줄에 「투자 판단은 본인 책임이며, 제공 정보는 참고용입니다.」를 넣으세요.
 실시간 시세가 불확실하면 앱의 시세·차트·종목 상세 화면을 확인하라고 안내하세요."""
 
 
@@ -162,7 +165,7 @@ def _api_error_message(provider: str, status: int, body: str) -> str:
                 return f"Gemini API 오류 ({status}): {msg}"
     except json.JSONDecodeError:
         pass
-    return f"{provider} API 오류 ({status})"
+    return f"{provider} API 오류 ({status}): {detail}"
 
 
 async def _chat_openai(
@@ -250,7 +253,9 @@ async def chat(
 ) -> tuple[str, str, str, dict | None]:
     provider = resolve_provider()
     if not provider:
-        raise RuntimeError("AI 챗봇 API 키가 설정되지 않았습니다. OPENAI_API_KEY 또는 GEMINI_API_KEY를 입력하세요.")
+        raise RuntimeError(
+            "AI 챗봇 API 키가 설정되지 않았습니다. OPENAI_API_KEY 또는 GEMINI_API_KEY를 입력하세요."
+        )
 
     text = message.strip()[:MAX_MESSAGE_LEN]
     if not text:

@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 
 from app.data.chart_events_seed import CHART_EVENTS_SEED
 from app.data.key_stats_profiles import KEY_STATS_PROFILES
+
 logger = logging.getLogger(__name__)
 
 PERIOD_EVENT_DAYS: dict[str, int] = {
@@ -16,6 +17,7 @@ PERIOD_EVENT_DAYS: dict[str, int] = {
     "1w": 14,
     "1m": 45,
     "3m": 120,
+    "5mo": 170,
     "6m": 200,
     "1y": 400,
     "5y": 365 * 6,
@@ -47,10 +49,18 @@ class ChartEventsService:
                 return []
             out: list[dict] = []
             for ts, amount in divs.items():
-                if hasattr(ts, "to_pydatetime"):
-                    dt = ts.to_pydatetime()
+                if isinstance(ts, datetime):
+                    dt = ts
                 else:
-                    dt = datetime.fromisoformat(str(ts))
+                    to_pydatetime = getattr(ts, "to_pydatetime", None)
+                    if callable(to_pydatetime):
+                        raw_dt = to_pydatetime()
+                        if isinstance(raw_dt, datetime):
+                            dt = raw_dt
+                        else:
+                            dt = datetime.fromisoformat(str(ts))
+                    else:
+                        dt = datetime.fromisoformat(str(ts))
                 out.append(
                     {
                         "type": "dividend",
@@ -70,9 +80,7 @@ class ChartEventsService:
         profile = KEY_STATS_PROFILES.get(symbol, {})
         events: list[dict] = []
         for d in seed.get("dividends") or []:
-            events.append(
-                {"type": "dividend", "date": str(d)[:10], "label": "D", "title": "배당"}
-            )
+            events.append({"type": "dividend", "date": str(d)[:10], "label": "D", "title": "배당"})
         for d in seed.get("earnings") or []:
             events.append(
                 {"type": "earnings", "date": str(d)[:10], "label": "E", "title": "실적 발표"}

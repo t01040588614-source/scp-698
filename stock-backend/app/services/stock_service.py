@@ -1,7 +1,7 @@
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.market_data import market_data
+from app.services.market_session import is_any_regular_session
 
 
 class StockService:
@@ -27,7 +27,7 @@ class StockService:
         return market_data.get_by_type("europe")
 
     async def get_korea_stock_detail(self, symbol: str) -> dict | None:
-        market_data.ensure_fresh(max_age_sec=8)
+        market_data.ensure_fresh(max_age_sec=3 if is_any_regular_session() else 8)
         row = market_data.get_by_symbol(symbol)
         market_data.schedule_symbol_fresh(symbol)
         if row:
@@ -40,7 +40,7 @@ class StockService:
 
     async def get_us_stock_detail(self, symbol: str) -> dict | None:
         sym = symbol.upper()
-        market_data.ensure_fresh(max_age_sec=8)
+        market_data.ensure_fresh(max_age_sec=3 if is_any_regular_session() else 8)
         row = market_data.get_by_symbol(sym)
         market_data.schedule_symbol_fresh(sym)
         if not row:
@@ -52,6 +52,7 @@ class StockService:
         """종목 검색"""
         query = query.lower()
         return [
-            stock for stock in market_data.get_all()
+            stock
+            for stock in market_data.get_all()
             if query in stock["symbol"].lower() or query in stock["name"].lower()
         ]

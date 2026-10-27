@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 import secrets
-from datetime import timedelta
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.security import create_access_token, get_password_hash
+from app.core.security import get_password_hash
 from app.db.session import get_db
 from app.integrations.key_store import get_key
 from app.integrations.registry import google_oauth_enabled, kakao_oauth_enabled
 from app.models.user import User
+from app.services.auth_tokens import issue_auth_token_pair
 from app.services.user_service import UserService
 
 router = APIRouter(tags=["OAuth (API Key)"])
@@ -51,12 +51,17 @@ def _redirect_uri(provider: str) -> str:
     return f"{base}{settings.API_V1_PREFIX}/auth/oauth/{provider}/callback"
 
 
-def _frontend_token_redirect(token: str) -> RedirectResponse:
+def _frontend_token_redirect(access: str, refresh: str | None = None) -> RedirectResponse:
     front = settings.OAUTH_FRONTEND_BASE.rstrip("/")
-    return RedirectResponse(url=f"{front}/login/oauth-complete?token={token}")
+    params: dict[str, str] = {"token": access}
+    if refresh:
+        params["refresh"] = refresh
+    return RedirectResponse(url=f"{front}/login/oauth-complete?{urlencode(params)}")
 
 
-async def _upsert_oauth_user(db: AsyncSession, email: str, username: str, full_name: str | None) -> User:
+async def _upsert_oauth_user(
+    db: AsyncSession, email: str, username: str, full_name: str | None
+) -> User:
     service = UserService(db)
     user = await service.get_by_email(email)
     if user:
@@ -138,11 +143,8 @@ async def google_callback(
         username=email.split("@")[0],
         full_name=info.get("name"),
     )
-    jwt = create_access_token(
-        subject={"sub": str(user.id)},
-        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-    )
-    return _frontend_token_redirect(jwt)
+    tokens = await issue_auth_token_pair(db, user)
+    return _frontend_token_redirect(tokens["access_token"], tokens.get("refresh_token"))
 
 
 @router.get("/kakao")
@@ -199,8 +201,5 @@ async def kakao_callback(
     email = kakao_account.get("email") or f"kakao_{info.get('id')}@oauth.local"
     nickname = (kakao_account.get("profile") or {}).get("nickname") or f"kakao_{info.get('id')}"
     user = await _upsert_oauth_user(db, email=email, username=nickname, full_name=nickname)
-    jwt = create_access_token(
-        subject={"sub": str(user.id)},
-        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-    )
-    return _frontend_token_redirect(jwt)
+    tokens = await issue_auth_token_pair(db, user)
+    return _frontend_token_redirect(tokens["access_token"], tokens.get("refresh_token"))

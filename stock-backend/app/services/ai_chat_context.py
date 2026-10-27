@@ -72,7 +72,11 @@ def format_quote_snippet(row: dict) -> str:
     sym = row.get("symbol") or ""
     price = row.get("price")
     change = row.get("change")
-    change_pct = row.get("change_percent") if row.get("change_percent") is not None else row.get("changePercent")
+    change_pct = (
+        row.get("change_percent")
+        if row.get("change_percent") is not None
+        else row.get("changePercent")
+    )
     sector = row.get("sector") or ""
     vol = row.get("volume")
     mcap = row.get("market_cap") if row.get("market_cap") is not None else row.get("marketCap")
@@ -80,7 +84,9 @@ def format_quote_snippet(row: dict) -> str:
     if price is not None:
         parts.append(f"현재가 {price}")
     if change is not None or change_pct is not None:
-        pct = f"{change_pct:+.2f}%" if isinstance(change_pct, (int, float)) else str(change_pct or "")
+        pct = (
+            f"{change_pct:+.2f}%" if isinstance(change_pct, (int, float)) else str(change_pct or "")
+        )
         ch = f"{change:+.2f}" if isinstance(change, (int, float)) else str(change or "")
         parts.append(f"등락 {ch} ({pct})".strip())
     if sector:
@@ -126,7 +132,9 @@ def build_context_block(
             "symbol": row.get("symbol"),
             "name": row.get("name") or row.get("name_ko"),
             "price": row.get("price"),
-            "changePercent": row.get("change_percent") if row.get("change_percent") is not None else row.get("changePercent"),
+            "changePercent": row.get("change_percent")
+            if row.get("change_percent") is not None
+            else row.get("changePercent"),
             "sector": row.get("sector"),
         }
     elif symbol:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import math
 from typing import Any
 
@@ -7,6 +8,13 @@ from app.data.key_stats_profiles import KEY_STATS_PROFILES
 from app.data.kr_seed_analytics import KR_FUNDAMENTAL_SEED
 from app.services.chart_service import chart_service
 from app.services.market_data import market_data
+from app.services.valuation_insights import (
+    analyst_sentiment_label,
+    company_score,
+    consensus_for_symbol,
+    fetch_yahoo_extras,
+    pro_tip_text,
+)
 
 
 def _krx_tick_size(price: float) -> int:
@@ -69,10 +77,6 @@ def _row(label: str, value: str | None, *, kind: str = "value", premium: bool = 
     return {"label": label, "value": value, "kind": kind, "premium": premium}
 
 
-def _locked(label: str, premium: bool = True) -> dict:
-    return _row(label, None, kind="locked", premium=premium)
-
-
 class KeyStatsService:
     async def get_key_stats(self, symbol: str, market: str) -> dict[str, Any]:
         market_data.ensure_fresh()
@@ -91,7 +95,13 @@ class KeyStatsService:
         bid = max(price - tick, 0) if price > 0 else None
         ask = price + tick if price > 0 else None
 
-        hist = await chart_service.get_history(symbol, market, "1y")
+        exchange = (
+            (stock.get("market") or stock.get("exchange") or "KOSPI") if market == "korea" else None
+        )
+        yahoo_extra, hist = await asyncio.gather(
+            fetch_yahoo_extras(symbol, market, str(exchange) if exchange else None),
+            chart_service.get_history(symbol, market, "1y"),
+        )
         points = hist.get("points") or []
         closes = [float(p["close"]) for p in points if p.get("close")]
         highs = [float(p["high"]) for p in points if p.get("high")]
@@ -157,6 +167,47 @@ class KeyStatsService:
             except ValueError:
                 earnings_label = str(earnings)
 
+        consensus = consensus_for_symbol(symbol, market)
+        fair_value = None
+        if consensus and consensus.get("target_price_avg"):
+            fair_value = float(consensus["target_price_avg"])
+        elif yahoo_extra.get("target_mean"):
+            fair_value = float(yahoo_extra["target_mean"])
+
+        upside_pct = None
+        if fair_value is not None and price > 0:
+            upside_pct = (fair_value - price) / price * 100
+
+        eps_growth = profile.get("eps_growth_pct")
+        if eps_growth is None and yahoo_extra.get("eps_growth_pct") is not None:
+            eps_growth = yahoo_extra["eps_growth_pct"]
+
+        div_streak = profile.get("dividend_streak_years")
+        if div_streak is None and yahoo_extra.get("dividend_streak_years") is not None:
+            div_streak = yahoo_extra["dividend_streak_years"]
+
+        beta_val = profile.get("beta")
+        if beta_val is None and yahoo_extra.get("beta") is not None:
+            beta_val = yahoo_extra["beta"]
+
+        per_f = float(per) if per else None
+        score, score_label = company_score(
+            roe=float(roe) if roe is not None else None,
+            roa=float(roa) if roa is not None else None,
+            per=per_f,
+            upside_pct=upside_pct,
+        )
+        sentiment = analyst_sentiment_label(
+            consensus.get("buy_count") if consensus else None,
+            consensus.get("hold_count") if consensus else None,
+            consensus.get("sell_count") if consensus else None,
+        )
+        tip = pro_tip_text(
+            eps_growth_pct=float(eps_growth) if eps_growth is not None else None,
+            upside_pct=upside_pct,
+            dividend_streak=int(div_streak) if div_streak is not None else None,
+        )
+
         col1 = [
             _row("매수/매도", bid_ask),
             _row("전일 종가", _fmt_num(prev, 0)),
@@ -169,8 +220,11 @@ class KeyStatsService:
                 "1년 변동률",
                 f"{one_year_change:.4f}%" if one_year_change is not None else None,
             ),
-            _locked("적정가치"),
-            _locked("적정가치 상승 여력"),
+            _row("적정가치", _fmt_num(fair_value, 0) if fair_value else None),
+            _row(
+                "적정가치 상승 여력",
+                f"{upside_pct:.2f}%" if upside_pct is not None else None,
+            ),
         ]
 
         col2 = [
@@ -178,11 +232,22 @@ class KeyStatsService:
             _row("발행주식수", _fmt_compact(shares) if shares else None),
             _row("매출", _fmt_compact(profile.get("revenue"))),
             _row("순이익", _fmt_compact(profile.get("net_income"))),
-            _row("주당순이익", _fmt_num(profile.get("eps"), 4) if profile.get("eps") else _fmt_num(stock.get("eps"), 4)),
-            _locked("주당순이익 성장 예측"),
+            _row(
+                "주당순이익",
+                _fmt_num(profile.get("eps"), 4)
+                if profile.get("eps")
+                else _fmt_num(stock.get("eps"), 4),
+            ),
+            _row(
+                "주당순이익 성장 예측",
+                f"{float(eps_growth):.2f}%" if eps_growth is not None else None,
+            ),
             _row("다음 실적 발표일", earnings_label),
             _row("배당금", dividend_str),
-            _locked("배당금 연속 지급"),
+            _row(
+                "배당금 연속 지급",
+                f"{int(div_streak)}년" if div_streak is not None else None,
+            ),
             _row("RSI(14)", _fmt_num(rsi, 2) if rsi is not None else None),
         ]
 
@@ -193,8 +258,11 @@ class KeyStatsService:
             _row("매출총이익률", f"{gross}%" if gross is not None else None),
             _row("주식 순자산 비율", _fmt_num(float(pbr), 2) if pbr else None),
             _row("EBITDA", _fmt_compact(profile.get("ebitda"))),
-            _row("EV/EBITDA", _fmt_num(profile.get("ev_ebitda"), 2) if profile.get("ev_ebitda") else None),
-            _row("베타", None),
+            _row(
+                "EV/EBITDA",
+                _fmt_num(profile.get("ev_ebitda"), 2) if profile.get("ev_ebitda") else None,
+            ),
+            _row("베타", _fmt_num(float(beta_val), 2) if beta_val is not None else None),
             _row(
                 "장부가치 / 발행 주식 수",
                 _fmt_num(profile.get("book_value_per_share"), 2)
@@ -213,6 +281,17 @@ class KeyStatsService:
             "symbol": symbol,
             "market": market,
             "columns": [col1, col2, col3],
+            "insights": {
+                "companyScore": score,
+                "companyScoreLabel": score_label,
+                "fairValue": fair_value,
+                "fairValueUpsidePct": upside_pct,
+                "analystSentiment": sentiment,
+                "proTip": tip,
+                "epsGrowthPct": float(eps_growth) if eps_growth is not None else None,
+                "dividendStreakYears": int(div_streak) if div_streak is not None else None,
+                "beta": float(beta_val) if beta_val is not None else None,
+            },
         }
 
 

@@ -3,7 +3,6 @@ import logging
 from datetime import datetime, timedelta
 
 from app.core.datetime_utils import utc_now
-from app.services.market_session import is_any_regular_session, refresh_profile, session_status
 from app.data.asia_universe import ASIA_UNIVERSE
 from app.data.europe_universe import EUROPE_UNIVERSE
 from app.data.korea_universe import KOREA_UNIVERSE
@@ -13,7 +12,15 @@ from app.data.seed_stocks import (
     build_korea_seed_stocks,
     build_us_seed_stocks,
 )
+from app.data.stock_display_names import apply_display_name, registry_name
 from app.services import index_service
+from app.services.korea_valuation_cache import (
+    apply_valuation_to_rows,
+    merge_korea_fundamentals,
+    warm_valuation_cache_async,
+)
+from app.services.krx_listing_cache import apply_krx_mcap_to_rows
+from app.services.market_session import is_any_regular_session, refresh_profile, session_status
 from app.services.stock_providers.kis_korea_provider import KisKoreaProvider
 from app.services.stock_providers.korea_fdr_provider import KoreaFdrProvider
 from app.services.stock_providers.premium_us_provider import PremiumUsProvider
@@ -78,6 +85,8 @@ class MarketDataService:
         self._subscribed_symbols = set(symbols)
 
     def _apply_stocks(self, stocks: list[dict], stock_type: str) -> None:
+        if stock_type == "korea" and stocks:
+            apply_krx_mcap_to_rows(stocks)
         for stock in stocks:
             stock["type"] = stock_type
             stock.pop("data_source", None)
@@ -92,6 +101,7 @@ class MarketDataService:
                 except (TypeError, ValueError):
                     pass
             self._sync_change_from_close(stock)
+            apply_display_name(stock)
             self._cache[sym] = stock
 
     def _sync_change_from_close(self, row: dict) -> None:
@@ -132,10 +142,24 @@ class MarketDataService:
                 pass
         if "price" in patch and patch.get("price") is not None:
             self._sync_change_from_close(merged)
+        apply_display_name(merged)
         self._cache[sym] = merged
 
     def _yahoo_in_cooldown(self) -> bool:
         return self._yahoo_skip_until is not None and utc_now() < self._yahoo_skip_until
+
+    @staticmethod
+    def _yahoo_failure_reason(exc: BaseException | None = None, text: str | None = None) -> str:
+        blob = f"{exc or ''} {text or ''}".lower()
+        if "429" in blob or "too many" in blob or "rate limit" in blob:
+            return "yahoo_rate_limit"
+        return "yahoo_timeout"
+
+    def yahoo_refresh_throttled(self) -> bool:
+        """Yahoo 429·타임아웃 시 갱신·WS 주기 자동 완화."""
+        if self._yahoo_in_cooldown():
+            return True
+        return self._last_error in ("yahoo_rate_limit", "yahoo_timeout")
 
     def _mark_yahoo_cooldown(
         self,
@@ -143,8 +167,16 @@ class MarketDataService:
         *,
         reason: str = "yahoo_timeout",
     ) -> None:
+        if reason == "yahoo_rate_limit":
+            minutes = max(minutes, 5.0)
         self._yahoo_skip_until = utc_now() + timedelta(minutes=minutes)
         self._last_error = reason
+
+    def _mark_yahoo_failure(
+        self, exc: BaseException | None = None, *, minutes: float = 3.0
+    ) -> None:
+        reason = self._yahoo_failure_reason(exc)
+        self._mark_yahoo_cooldown(minutes, reason=reason)
 
     def _reconcile_last_error(self) -> None:
         """Yahoo만 실패하고 FDR·프리미엄 등으로 캐시가 갱신된 경우 UI 오류를 내리지 않음."""
@@ -172,16 +204,16 @@ class MarketDataService:
                     self.korea_yahoo.get_stocks(),
                     timeout=YAHOO_FETCH_TIMEOUT_SEC,
                 )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "Korea Yahoo fetch timed out (%.0fs) — FDR·캐시 폴백",
                 YAHOO_FETCH_TIMEOUT_SEC,
             )
-            self._mark_yahoo_cooldown()
+            self._mark_yahoo_failure(minutes=3.0)
             return []
         except Exception as exc:
             logger.warning("Korea Yahoo fetch failed: %s", exc)
-            self._last_error = str(exc)
+            self._mark_yahoo_failure(exc)
             return []
 
     async def _fetch_korea(self) -> list[dict]:
@@ -193,12 +225,18 @@ class MarketDataService:
         by_sym: dict[str, dict] = {r["symbol"]: r for r in fdr_rows if r.get("symbol")}
         if yahoo_rows:
             for row in yahoo_rows:
-                by_sym[row["symbol"]] = row
+                sym = row.get("symbol")
+                if not sym:
+                    continue
+                by_sym[sym] = merge_korea_fundamentals(by_sym.get(sym), row)
             self._korea_source = "yahoo"
             if self.korea_kis.is_configured():
                 self._korea_source = "yahoo+kis_watch"
-            return list(by_sym.values())
+            rows = list(by_sym.values())
+            apply_valuation_to_rows(rows)
+            return rows
         if fdr_rows:
+            apply_valuation_to_rows(fdr_rows)
             self._korea_source = "fdr"
             return fdr_rows
         if self.korea_kis.is_configured() and self._subscribed_symbols:
@@ -221,16 +259,16 @@ class MarketDataService:
                     self.us_provider.get_stocks(),
                     timeout=YAHOO_FETCH_TIMEOUT_SEC,
                 )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "US Yahoo fetch timed out (%.0fs)",
                 YAHOO_FETCH_TIMEOUT_SEC,
             )
-            self._mark_yahoo_cooldown()
+            self._mark_yahoo_failure(minutes=3.0)
             return []
         except Exception as exc:
             logger.warning("US Yahoo fetch failed: %s", exc)
-            self._last_error = str(exc)
+            self._mark_yahoo_failure(exc)
             return []
 
     async def _fetch_us(self) -> list[dict]:
@@ -255,12 +293,13 @@ class MarketDataService:
                     provider.get_stocks(),
                     timeout=YAHOO_FETCH_TIMEOUT_SEC,
                 )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Intl Yahoo fetch timed out (%.0fs)", YAHOO_FETCH_TIMEOUT_SEC)
-            self._mark_yahoo_cooldown()
+            self._mark_yahoo_failure(minutes=3.0)
             return []
         except Exception as exc:
             logger.warning("Intl Yahoo fetch failed: %s", exc)
+            self._mark_yahoo_failure(exc)
             return []
 
     async def _fetch_asia(self) -> list[dict]:
@@ -298,12 +337,13 @@ class MarketDataService:
                                     self.korea_yahoo.get_quotes_full(kr),
                                     timeout=YAHOO_FETCH_TIMEOUT_SEC,
                                 )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         logger.warning("Korea Yahoo symbol batch timed out")
-                        self._mark_yahoo_cooldown()
+                        self._mark_yahoo_failure(minutes=3.0)
                         yahoo_rows = []
                     except Exception as exc:
                         logger.warning("Korea Yahoo symbol batch failed: %s", exc)
+                        self._mark_yahoo_failure(exc)
                         yahoo_rows = []
                 fdr_patches = await self.korea_fdr.get_quote_patches(kr)
                 for row in yahoo_rows:
@@ -336,10 +376,11 @@ class MarketDataService:
                                 self.asia_yahoo.get_quotes_full(asia),
                                 timeout=YAHOO_FETCH_TIMEOUT_SEC,
                             )
-                except asyncio.TimeoutError:
-                    self._mark_yahoo_cooldown()
+                except TimeoutError:
+                    self._mark_yahoo_failure(minutes=3.0)
                 except Exception as exc:
                     logger.warning("Asia Yahoo symbol batch failed: %s", exc)
+                    self._mark_yahoo_failure(exc)
             if europe and not self._yahoo_in_cooldown():
                 try:
                     async with self._yahoo_fetch_lock:
@@ -348,10 +389,11 @@ class MarketDataService:
                                 self.europe_yahoo.get_quotes_full(europe),
                                 timeout=YAHOO_FETCH_TIMEOUT_SEC,
                             )
-                except asyncio.TimeoutError:
-                    self._mark_yahoo_cooldown()
+                except TimeoutError:
+                    self._mark_yahoo_failure(minutes=3.0)
                 except Exception as exc:
                     logger.warning("Europe Yahoo symbol batch failed: %s", exc)
+                    self._mark_yahoo_failure(exc)
 
             us_rows: list[dict] = []
             if us:
@@ -392,7 +434,7 @@ class MarketDataService:
             return
         limit = max_age_sec
         if limit is None:
-            limit = 0.9 if is_any_regular_session() else 10.0
+            limit = 0.65 if is_any_regular_session() else 10.0
         last = self._symbol_last_refresh.get(symbol)
         if last is not None and (utc_now() - last).total_seconds() < limit:
             return
@@ -445,6 +487,7 @@ class MarketDataService:
             async with self._refresh_lock:
                 if korea_stocks:
                     self._apply_stocks(korea_stocks, "korea")
+                    apply_valuation_to_rows(self.get_by_type("korea"))
                 else:
                     fdr_retry = await self.korea_fdr.get_stocks()
                     if fdr_retry:
@@ -519,6 +562,17 @@ class MarketDataService:
         self._background_tasks.add(init_task)
         init_task.add_done_callback(self._background_tasks.discard)
 
+        async def _warm_korea_valuation() -> None:
+            try:
+                await warm_valuation_cache_async()
+                apply_valuation_to_rows(self.get_by_type("korea"))
+            except Exception as exc:
+                logger.warning("Korea valuation warm failed: %s", exc)
+
+        warm_task = asyncio.create_task(_warm_korea_valuation())
+        self._background_tasks.add(warm_task)
+        warm_task.add_done_callback(self._background_tasks.discard)
+
         self._task = asyncio.create_task(self._refresh_loop())
         self._fast_task = asyncio.create_task(self._fast_refresh_loop())
         self._index_task = asyncio.create_task(self._index_refresh_loop())
@@ -534,7 +588,7 @@ class MarketDataService:
                     pass
 
     def _sync_refresh_profile(self) -> None:
-        p = refresh_profile()
+        p = refresh_profile(yahoo_throttled=self.yahoo_refresh_throttled())
         self._refresh_interval = p["full_interval"]
         self._fast_interval = p["fast_interval"]
         self._fast_batch_size = p["fast_batch"]
@@ -551,19 +605,27 @@ class MarketDataService:
             except Exception as exc:
                 logger.exception("Background refresh failed: %s", exc)
 
+    def _universe_refresh_symbols(self) -> list[str]:
+        """구독·캐시 전체 — 보드에 없는 종목도 fast 루프에 포함."""
+        cached = sorted(self._cache.keys())
+        if cached:
+            return cached
+        return sorted(self._subscribed_symbols)
+
     def _fast_refresh_batch(self) -> list[str]:
-        symbols = sorted(self._subscribed_symbols)
+        symbols = self._universe_refresh_symbols()
         if not symbols:
             return []
         if is_any_regular_session() and len(symbols) <= self._fast_batch_size:
             return symbols
         n = len(symbols)
-        start = self._fast_rotation % n
-        end = start + self._fast_batch_size
-        self._fast_rotation = (start + self._fast_batch_size) % n
-        if end <= n:
-            return symbols[start:end]
-        return symbols[start:] + symbols[: end - n]
+        start = int(self._fast_rotation % n)
+        batch_end = start + int(self._fast_batch_size)
+        self._fast_rotation = (start + int(self._fast_batch_size)) % n
+        if batch_end <= n:
+            return symbols[start:batch_end]
+        wrap = batch_end - n
+        return symbols[start:] + symbols[:wrap]
 
     async def _fast_refresh_loop(self):
         """WebSocket 구독 종목 우선 갱신 (배치 로테이션)"""
@@ -574,8 +636,8 @@ class MarketDataService:
             if not batch:
                 continue
             age = self.cache_age_seconds()
-            if is_any_regular_session() and age is not None and age > 6:
-                self.schedule_refresh(min_gap=2.0)
+            if is_any_regular_session() and age is not None and age > 4:
+                self.schedule_refresh(min_gap=1.0)
             try:
                 self.schedule_refresh_symbols(batch)
             except Exception as exc:
@@ -598,10 +660,44 @@ class MarketDataService:
         return list(self._cache.values())
 
     def get_by_type(self, stock_type: str) -> list[dict]:
-        return [s for s in self._cache.values() if s.get("type") == stock_type]
+        rows = [s for s in self._cache.values() if s.get("type") == stock_type]
+        for row in rows:
+            apply_display_name(row)
+        return rows
+
+    def apply_kis_tick(self, symbol: str, price: float) -> None:
+        """KIS WS 체결 틱 → 캐시 즉시 반영 (PoC)."""
+        sym = symbol.strip().zfill(6)
+        row = self._cache.get(sym)
+        if not row:
+            row = {
+                "symbol": sym,
+                "name": registry_name(sym) or sym,
+                "price": price,
+                "change": 0.0,
+                "change_percent": 0.0,
+                "volume": 0,
+                "type": "korea",
+                "data_source": "kis_ws",
+            }
+            self._cache[sym] = row
+        else:
+            prev = float(row.get("price") or price)
+            row["price"] = price
+            row["change"] = price - float(row.get("previous_close") or prev)
+            if row.get("previous_close"):
+                pc = float(row["previous_close"])
+                row["change_percent"] = ((price - pc) / pc * 100) if pc else 0.0
+            row["data_source"] = "kis_ws"
+        from app.core.datetime_utils import utc_now
+
+        self._last_updated = utc_now()
 
     def get_by_symbol(self, symbol: str) -> dict | None:
-        return self._cache.get(symbol)
+        row = self._cache.get(symbol)
+        if row:
+            apply_display_name(row)
+        return row
 
     def get_cached_quotes(self, symbols: list[str]) -> dict:
         out = {}
@@ -746,7 +842,8 @@ class MarketDataService:
             )
         elif self._last_error in ("yahoo_timeout", "yahoo_rate_limit"):
             message = (
-                "Yahoo Finance 응답 지연·제한 — FDR·캐시로 표시 중이며 자동 재시도합니다."
+                "Yahoo Finance 응답 지연·제한(429) — 갱신 주기·폴링을 자동 완화합니다. "
+                "복구되면 실시간 설정으로 돌아갑니다."
             )
         elif self._last_error:
             message = "시세 소스 일시 오류 — 자동 재시도 중입니다."
@@ -760,7 +857,29 @@ class MarketDataService:
                 message
                 or "장중: Yahoo/KIS fast 갱신 + WebSocket 1초 푸시 (HTS 틱급은 KIS WS 별도 계약)"
             )
+        throttled = self.yahoo_refresh_throttled()
+        prof = refresh_profile(yahoo_throttled=throttled)
+        from app.core.redis_store import redis_status
+        from app.integrations import kis_client
+
+        kis = kis_client.fetch_stats()
+        from app.services.kis_realtime_service import kis_realtime
+
+        kis_ws = kis_realtime.status()
+        realtime_mode = (
+            "kis_hts_tick_poc" if kis_ws.get("connected") else "quasi_realtime_cache_ws"
+        )
         return {
+            "realtime_mode": realtime_mode,
+            "kis_realtime": kis_ws,
+            "realtime_disclaimer": (
+                "준실시간(시세 캐시 + WebSocket 푸시). HTS급 체결 틱 스트림은 아닙니다."
+            ),
+            "kis_configured": kis.get("configured"),
+            "kis_last_fetch_ms": kis.get("last_fetch_ms"),
+            "kis_last_fetch_at": kis.get("last_fetch_at"),
+            "kis_last_batch_count": kis.get("last_batch_count"),
+            "redis": redis_status(),
             "korea_count": len(korea),
             "us_count": len(us),
             "korea_source": self._korea_source,
@@ -770,7 +889,9 @@ class MarketDataService:
             "refresh_interval_sec": self._refresh_interval,
             "fast_refresh_interval_sec": self._fast_interval,
             "index_refresh_interval_sec": self._index_interval,
-            "ws_push_interval_sec": 1,
+            "ws_push_interval_sec": prof.get("ws_broadcast_interval", 1),
+            "yahoo_throttled": throttled,
+            "refresh_mode": "yahoo_throttled" if throttled else "normal",
             "last_error": self._last_error,
             "message": message,
             "subscribed_symbols": len(self._subscribed_symbols),

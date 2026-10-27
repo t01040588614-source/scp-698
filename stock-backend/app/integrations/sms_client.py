@@ -68,7 +68,11 @@ def _ncp_ready() -> bool:
 
 
 def _twilio_ready() -> bool:
-    return bool(get_key("TWILIO_ACCOUNT_SID") and get_key("TWILIO_AUTH_TOKEN") and get_key("TWILIO_SMS_FROM"))
+    return bool(
+        get_key("TWILIO_ACCOUNT_SID")
+        and get_key("TWILIO_AUTH_TOKEN")
+        and get_key("TWILIO_SMS_FROM")
+    )
 
 
 def is_configured() -> bool:

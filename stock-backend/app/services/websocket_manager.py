@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from fastapi import WebSocket
 
 from app.services.market_data import market_data
-from app.services.market_session import is_any_regular_session
+from app.services.market_session import is_any_regular_session, refresh_profile
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class WSSubscription:
 
 
 class StockWebSocketManager:
-    """주식·지수 실시간 WebSocket — 캐시 기반 1초 푸시 (Yahoo 직접 호출 없음)."""
+    """주식·지수 실시간 WebSocket — 캐시 기반 푸시 (장중 ~0.35초, Yahoo 직접 호출 없음)."""
 
     def __init__(self, broadcast_interval: float = 1.0):
         self.active_connections: dict[WebSocket, WSSubscription] = {}
@@ -104,6 +104,8 @@ class StockWebSocketManager:
         from app.services.index_service import static_indices
 
         while self._running:
+            profile = refresh_profile(yahoo_throttled=market_data.yahoo_refresh_throttled())
+            sleep_sec = float(profile.get("ws_broadcast_interval", self.broadcast_interval))
             try:
                 if self.active_connections:
                     all_symbols: set[str] = set()
@@ -112,28 +114,30 @@ class StockWebSocketManager:
                         all_symbols.update(sub.symbols)
                         all_index_ids.update(sub.index_ids)
 
-                    market_data.set_subscribed_symbols(all_symbols)
+                    all_cached = market_data.get_all_symbols()
+                    market_data.set_subscribed_symbols(all_symbols | set(all_cached))
 
                     age = market_data.cache_age_seconds()
                     threshold = getattr(market_data, "_stale_push_sec", 8)
-                    gap = 0.5 if is_any_regular_session() else 3.0
-                    if all_symbols:
-                        market_data.schedule_refresh_symbols_debounced(
-                            list(all_symbols), min_gap=gap
-                        )
+                    default_gap = 0.5 if is_any_regular_session() else 3.0
+                    gap = float(profile.get("symbol_refresh_gap", default_gap))
+                    extras = sorted(all_symbols - set(all_cached))
+                    if extras:
+                        market_data.schedule_refresh_symbols_debounced(extras, min_gap=gap)
                     if is_any_regular_session():
                         if age is None or age > threshold:
-                            market_data.schedule_refresh(min_gap=2.0)
+                            market_data.schedule_refresh(min_gap=1.0)
                     elif age is None or age > threshold:
                         market_data.schedule_refresh()
 
-                    ts = (
-                        market_data.last_updated().isoformat()
-                        if market_data.last_updated()
-                        else None
-                    )
+                    last_updated = market_data.last_updated()
+                    ts = last_updated.isoformat() if last_updated else None
 
-                    push_syms = sorted(all_symbols) if all_symbols else []
+                    push_syms = (
+                        sorted(all_cached)
+                        if all_cached
+                        else (sorted(all_symbols) if all_symbols else [])
+                    )
                     if push_syms:
                         quotes = market_data.get_cached_quotes(push_syms)
                         ticks = market_data.get_cached_ticks(push_syms)
@@ -159,13 +163,11 @@ class StockWebSocketManager:
                     try:
                         cached = market_data.get_indices()
                         if all_index_ids:
-                            payload = [
-                                i for i in cached if i.get("id") in all_index_ids
-                            ]
+                            payload = [i for i in cached if i.get("id") in all_index_ids]
                             if not payload or len(payload) < len(all_index_ids):
                                 market_data.schedule_index_refresh()
-                                if not payload:
-                                    payload = static_indices(list(all_index_ids))
+                            if not payload:
+                                payload = static_indices(list(all_index_ids))
                         else:
                             payload = cached
                         if payload:
@@ -184,7 +186,7 @@ class StockWebSocketManager:
                 self._loop_errors += 1
                 logger.exception("WS broadcast loop iteration failed: %s", exc)
 
-            await asyncio.sleep(self.broadcast_interval)
+            await asyncio.sleep(sleep_sec)
 
 
 ws_manager = StockWebSocketManager(broadcast_interval=1.0)

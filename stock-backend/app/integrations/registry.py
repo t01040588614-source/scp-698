@@ -75,8 +75,11 @@ INTEGRATIONS: tuple[IntegrationDef, ...] = (
     IntegrationDef(
         id="fcm_push",
         name="Firebase Cloud Messaging",
-        description="푸시 알림 — Server Key 입력 시 테스트 발송 API 사용 가능",
-        fields=(KeyField("FCM_SERVER_KEY", "Server Key (Legacy)"),),
+        description="푸시 v1(서비스 계정 JSON) 또는 Legacy Server Key",
+        fields=(
+            KeyField("FCM_SERVICE_ACCOUNT_JSON", "Service Account JSON (한 줄)", required=False),
+            KeyField("FCM_SERVER_KEY", "Server Key (Legacy)", required=False),
+        ),
         docs_url="https://firebase.google.com/docs/cloud-messaging",
     ),
     IntegrationDef(
@@ -99,8 +102,12 @@ INTEGRATIONS: tuple[IntegrationDef, ...] = (
                 required=False,
                 secret=False,
             ),
-            KeyField("OPENAI_MODEL", "OpenAI 모델 (기본 gpt-4o-mini)", required=False, secret=False),
-            KeyField("GEMINI_MODEL", "Gemini 모델 (기본 gemini-2.0-flash)", required=False, secret=False),
+            KeyField(
+                "OPENAI_MODEL", "OpenAI 모델 (기본 gpt-4o-mini)", required=False, secret=False
+            ),
+            KeyField(
+                "GEMINI_MODEL", "Gemini 모델 (기본 gemini-2.0-flash)", required=False, secret=False
+            ),
             KeyField(
                 "OPENAI_BASE_URL",
                 "OpenAI 호환 Base URL (선택)",
@@ -115,7 +122,12 @@ INTEGRATIONS: tuple[IntegrationDef, ...] = (
         name="SMS 본인인증 (회원가입)",
         description="Aligo · NCP SENS · Twilio — SMS_PROVIDER 선택 후 해당 키 입력",
         fields=(
-            KeyField("SMS_PROVIDER", "aligo | ncp | twilio (비우면 키로 자동)", required=False, secret=False),
+            KeyField(
+                "SMS_PROVIDER",
+                "aligo | ncp | twilio (비우면 키로 자동)",
+                required=False,
+                secret=False,
+            ),
             KeyField("ALIGO_API_KEY", "Aligo API Key", required=False),
             KeyField("ALIGO_USER_ID", "Aligo user_id", required=False, secret=False),
             KeyField("ALIGO_SENDER", "Aligo 발신번호 (등록된 번호)", required=False, secret=False),
@@ -158,7 +170,9 @@ def integration_to_dict(defn: IntegrationDef) -> dict:
                 "secret": f.secret,
                 "configured": bool(val),
                 "source": key_source(f.key),
-                "masked": mask_value(val) if f.secret else (val[:20] + "…" if len(val) > 24 else val or None),
+                "masked": mask_value(val)
+                if f.secret
+                else (val[:20] + "…" if len(val) > 24 else val or None),
             }
         )
     configured = integration_configured(defn)
@@ -198,7 +212,9 @@ def kakao_oauth_enabled() -> bool:
 
 
 def fcm_enabled() -> bool:
-    return bool(get_key("FCM_SERVER_KEY"))
+    from app.integrations.fcm_client import is_configured
+
+    return is_configured()
 
 
 def news_api_enabled() -> bool:

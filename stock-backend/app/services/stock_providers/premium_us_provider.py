@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 
+from app.data.seed_stocks import US_NAMES
+from app.data.stock_display_names import resolve_display_name
 from app.integrations import alpha_vantage_client, finnhub_client
 from app.services.stock_providers.base import StockProvider
 from app.services.stock_providers.yahoo_provider import YahooFinanceProvider
@@ -14,25 +16,24 @@ class PremiumUsProvider(StockProvider):
 
     def __init__(self):
         self._yahoo = YahooFinanceProvider()
-        self._names = self._yahoo._names  # noqa: SLF001
 
     def _to_stock(self, patch: dict) -> dict:
         sym = patch["symbol"]
         return {
             "symbol": sym,
-            "name": self._names.get(sym, sym),
+            "name": resolve_display_name(sym, stock_type="us", current=US_NAMES.get(sym)),
             "price": patch["price"],
             "change": patch["change"],
             "change_percent": patch["change_percent"],
             "volume": patch.get("volume", 0),
-            "market_cap": 0,
+            "market_cap": patch.get("market_cap", 0) or 0,
             "high": patch.get("high", patch["price"]),
             "low": patch.get("low", patch["price"]),
             "open": patch.get("open", patch["price"]),
             "previous_close": patch.get("previous_close", patch["price"]),
             "exchange": "NASDAQ",
             "currency": "USD",
-            "pe_ratio": 0.0,
+            "pe_ratio": patch.get("pe_ratio", 0) or 0.0,
             "eps": 0.0,
             "sector": "",
             "data_source": patch.get("data_source"),
@@ -52,7 +53,7 @@ class PremiumUsProvider(StockProvider):
     async def get_stocks(self) -> list[dict]:
         if not finnhub_client.is_configured() and not alpha_vantage_client.is_configured():
             return []
-        symbols = self._yahoo._symbols  # noqa: SLF001
+        symbols = self._yahoo._symbols
         sem = asyncio.Semaphore(5)
 
         async def one(sym: str) -> dict | None:

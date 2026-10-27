@@ -8,20 +8,16 @@ import re
 import httpx
 
 from app.data.intl_logo_map import intl_yahoo_logo_ticker
-from app.data.us_logo_domains import us_logo_domain
 from app.data.korea_universe import KOREA_UNIVERSE
+from app.data.us_logo_domains import us_logo_domain
 
 _KOREA_YAHOO: dict[str, str] = {m["symbol"]: m["yahoo"] for m in KOREA_UNIVERSE}
 
 # 국내 증권앱(네이버/토스 등)과 동일 계열 — 6자리 코드 기준
-NAVER_KR_LOGO = (
-    "https://ssl.pstatic.net/imgstock/fn/real/logo/png/stock/Stock{code}.png"
-)
+NAVER_KR_LOGO = "https://ssl.pstatic.net/imgstock/fn/real/logo/png/stock/Stock{code}.png"
 FNGUIDE_KR = "https://comp.fnguide.com/Mobile/Common/Data/logo/KR/{code}.png"
 FMP_STOCK = "https://financialmodelingprep.com/image-stock/{ticker}.png"
-FINNHUB_LOGO = (
-    "https://static2.finnhub.io/file/publicdatany/finnhubimage/stock_logo/{ticker}.png"
-)
+FINNHUB_LOGO = "https://static2.finnhub.io/file/publicdatany/finnhubimage/stock_logo/{ticker}.png"
 PARQET_LOGO = "https://assets.parqet.com/logos/symbol/{ticker}?format=png"
 CLEARBIT_LOGO = "https://logo.clearbit.com/{domain}"
 

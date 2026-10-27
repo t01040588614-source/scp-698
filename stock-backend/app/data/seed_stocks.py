@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from app.data.asia_universe import ASIA_UNIVERSE
+from app.data.asia_universe import ASIA_UNIVERSE, IntlSymbolMeta
 from app.data.europe_universe import EUROPE_UNIVERSE
-from app.data.korea_universe import KOREA_UNIVERSE
+from app.data.korea_universe import KOREA_UNIVERSE, KoreaSymbolMeta
 
 # 대표 종목 참고가 (원). 나머지는 DEFAULT_KRW_PRICE 사용.
 KOREA_REFERENCE_KRW: dict[str, float] = {
@@ -33,10 +33,42 @@ KOREA_REFERENCE_KRW: dict[str, float] = {
 DEFAULT_KRW_PRICE = 50_000.0
 
 US_SYMBOLS = [
-    "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA",
-    "BRK-B", "JPM", "V", "UNH", "XOM", "JNJ", "WMT", "MA", "PG", "HD",
-    "AVGO", "LLY", "COST", "MRK", "ABBV", "PEP", "KO", "AMD", "NFLX",
-    "CRM", "ORCL", "ADBE", "INTC", "QCOM", "TXN", "BAC", "DIS", "CSCO",
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "GOOG",
+    "AMZN",
+    "NVDA",
+    "META",
+    "TSLA",
+    "BRK-B",
+    "JPM",
+    "V",
+    "UNH",
+    "XOM",
+    "JNJ",
+    "WMT",
+    "MA",
+    "PG",
+    "HD",
+    "AVGO",
+    "LLY",
+    "COST",
+    "MRK",
+    "ABBV",
+    "PEP",
+    "KO",
+    "AMD",
+    "NFLX",
+    "CRM",
+    "ORCL",
+    "ADBE",
+    "INTC",
+    "QCOM",
+    "TXN",
+    "BAC",
+    "DIS",
+    "CSCO",
 ]
 
 US_REFERENCE_USD: dict[str, float] = {
@@ -66,35 +98,38 @@ US_NAMES: dict[str, str] = {
     "BRK-B": "Berkshire Hathaway Inc.",
     "JPM": "JPMorgan Chase & Co.",
     "V": "Visa Inc.",
-    "UNH": "UnitedHealth Group",
+    "UNH": "UnitedHealth Group Incorporated",
     "XOM": "Exxon Mobil Corporation",
     "JNJ": "Johnson & Johnson",
     "WMT": "Walmart Inc.",
     "MA": "Mastercard Incorporated",
-    "PG": "Procter & Gamble",
+    "PG": "The Procter & Gamble Company",
     "HD": "The Home Depot, Inc.",
     "AVGO": "Broadcom Inc.",
     "LLY": "Eli Lilly and Company",
-    "COST": "Costco Wholesale",
+    "COST": "Costco Wholesale Corporation",
     "MRK": "Merck & Co., Inc.",
     "ABBV": "AbbVie Inc.",
     "PEP": "PepsiCo, Inc.",
     "KO": "The Coca-Cola Company",
-    "AMD": "Advanced Micro Devices",
+    "AMD": "Advanced Micro Devices, Inc.",
     "NFLX": "Netflix, Inc.",
     "CRM": "Salesforce, Inc.",
     "ORCL": "Oracle Corporation",
     "ADBE": "Adobe Inc.",
     "INTC": "Intel Corporation",
     "QCOM": "QUALCOMM Incorporated",
-    "TXN": "Texas Instruments",
-    "BAC": "Bank of America",
+    "TXN": "Texas Instruments Incorporated",
+    "BAC": "Bank of America Corporation",
     "DIS": "The Walt Disney Company",
     "CSCO": "Cisco Systems, Inc.",
 }
 
 
-def _row_from_meta(meta: dict, price: float) -> dict:
+def _row_from_meta(
+    meta: KoreaSymbolMeta | dict[str, str] | dict[str, object],
+    price: float,
+) -> dict:
     return {
         "symbol": meta["symbol"],
         "name": meta["name"],
@@ -140,7 +175,9 @@ def build_us_seed_stocks() -> list[dict]:
     return rows
 
 
-def _intl_seed_from_universe(universe: list[dict], default_price: float = 100.0) -> list[dict]:
+def _intl_seed_from_universe(
+    universe: list[IntlSymbolMeta], default_price: float = 100.0
+) -> list[dict]:
     rows: list[dict] = []
     for meta in universe:
         meta_row = {

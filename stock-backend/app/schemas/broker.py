@@ -1,4 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+_POPULATE = ConfigDict(populate_by_name=True)  # pyright: ignore[reportCallIssue]
+_ALIAS_CFG = ConfigDict(populate_by_name=True, ser_json_by_alias=True)  # pyright: ignore[reportCallIssue]
 
 
 class KisVerifyRequest(BaseModel):
@@ -8,7 +11,7 @@ class KisVerifyRequest(BaseModel):
     account_product_code: str = Field(default="01", alias="accountProductCode")
     use_mock: bool = Field(default=False, alias="useMock")
 
-    model_config = {"populate_by_name": True}
+    model_config = _POPULATE
 
 
 class KisVerifyResponse(BaseModel):
@@ -18,7 +21,7 @@ class KisVerifyResponse(BaseModel):
     cash_balance: float | None = Field(None, alias="cashBalance")
     account_masked: str | None = Field(None, alias="accountMasked")
 
-    model_config = {"populate_by_name": True, "ser_json_by_alias": True}
+    model_config = _ALIAS_CFG
 
 
 class UserKisCredentialBody(BaseModel):
@@ -28,7 +31,7 @@ class UserKisCredentialBody(BaseModel):
     account_product_code: str = Field(default="01", alias="accountProductCode")
     use_mock: bool = Field(default=False, alias="useMock")
 
-    model_config = {"populate_by_name": True}
+    model_config = _POPULATE
 
 
 class UserKisCredentialStatus(BaseModel):
@@ -38,4 +41,4 @@ class UserKisCredentialStatus(BaseModel):
     use_mock: bool = Field(False, alias="useMock")
     verified_at: str | None = Field(None, alias="verifiedAt")
 
-    model_config = {"populate_by_name": True, "ser_json_by_alias": True}
+    model_config = _ALIAS_CFG

@@ -27,6 +27,18 @@ KR_FUNDAMENTAL_SEED: dict[str, dict] = {
         "dividend_yield": 0.5,
         "industry": "인터넷",
     },
+    "011070": {
+        "fiscal_year": 2024,
+        "fiscal_quarter": 4,
+        "per": 10.2,
+        "pbr": 0.92,
+        "roe": 9.2,
+        "op_margin": 6.8,
+        "net_margin": 4.2,
+        "debt_ratio": 48.5,
+        "dividend_yield": 0.68,
+        "industry": "전기전자",
+    },
 }
 
 KR_NEWS_SEED = [
@@ -38,6 +50,15 @@ KR_NEWS_SEED = [
         "source": "Market Desk",
         "published_at": datetime(2026, 9, 29, 6, 30, tzinfo=UTC),
         "sentiment": "neutral",
+    },
+    {
+        "code": "011070",
+        "title": "LG이노텍, IT·모바일 부품 수요 회복에 실적 개선 기대",
+        "summary": "카메라 모듈·전장 부품 물량 확대가 마진 방어에 긍정적이라는 증권사 코멘트.",
+        "url": "https://kr.investing.com/equities/lg-innotek-co-ltd",
+        "source": "KR Tech Desk",
+        "published_at": datetime(2026, 10, 20, 3, 0, tzinfo=UTC),
+        "sentiment": "positive",
     },
     {
         "code": None,
@@ -67,6 +88,15 @@ KR_CONSENSUS_SEED: dict[str, dict] = {
         "target_price_low": 200000,
         "buy_count": 18,
         "hold_count": 10,
+        "sell_count": 2,
+    },
+    "011070": {
+        "as_of": date(2026, 10, 15),
+        "target_price_avg": 198000,
+        "target_price_high": 230000,
+        "target_price_low": 165000,
+        "buy_count": 14,
+        "hold_count": 8,
         "sell_count": 2,
     },
 }

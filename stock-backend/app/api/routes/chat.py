@@ -40,7 +40,10 @@ async def chat_completion(body: ChatRequest):
     if not ai_chat_service.is_configured():
         raise HTTPException(
             status_code=503,
-            detail="AI 챗봇이 비활성화되어 있습니다. /tools/integrations 에서 OpenAI 또는 Gemini API 키를 설정하세요.",
+            detail=(
+                "AI 챗봇이 비활성화되어 있습니다. /tools/integrations 에서 "
+                "OpenAI 또는 Gemini API 키를 설정하세요."
+            ),
         )
     quote_row = None
     if body.symbol:

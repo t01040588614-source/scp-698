@@ -1,7 +1,10 @@
-from datetime import date, datetime
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+_ALIAS_CFG = ConfigDict(populate_by_name=True, ser_json_by_alias=True)  # pyright: ignore[reportCallIssue]
+_ATTR_ALIAS_CFG = ConfigDict(from_attributes=True, populate_by_name=True, ser_json_by_alias=True)  # pyright: ignore[reportCallIssue]
 
 
 class AccountUpdate(BaseModel):
@@ -11,7 +14,7 @@ class AccountUpdate(BaseModel):
     currency: str | None = None
     initial_cash_balance: float | None = Field(None, alias="initialCashBalance")
 
-    model_config = {"populate_by_name": True, "ser_json_by_alias": True}
+    model_config = _ALIAS_CFG
 
 
 class AccountCreate(BaseModel):
@@ -22,7 +25,7 @@ class AccountCreate(BaseModel):
     cash_balance: float | None = Field(0, alias="cashBalance")
     owner_id: str | None = Field(None, alias="ownerId")
 
-    model_config = {"populate_by_name": True, "ser_json_by_alias": True}
+    model_config = _ALIAS_CFG
 
 
 class AccountOut(BaseModel):
@@ -35,7 +38,7 @@ class AccountOut(BaseModel):
     cash_balance: float | None = Field(None, alias="cashBalance")
     initial_cash_balance: float | None = Field(None, alias="initialCashBalance")
 
-    model_config = {"from_attributes": True, "populate_by_name": True, "ser_json_by_alias": True}
+    model_config = _ATTR_ALIAS_CFG
 
 
 class PositionOut(BaseModel):
@@ -47,7 +50,7 @@ class PositionOut(BaseModel):
     unrealized_pnl: float | None = Field(None, alias="unrealizedPnL")
     unrealized_pnl_rate: float | None = Field(None, alias="unrealizedPnLRate")
 
-    model_config = {"populate_by_name": True, "ser_json_by_alias": True}
+    model_config = _ALIAS_CFG
 
 
 class TradeCreate(BaseModel):
@@ -61,7 +64,7 @@ class TradeCreate(BaseModel):
     tax: float | None = None
     memo: str | None = None
 
-    model_config = {"populate_by_name": True, "ser_json_by_alias": True}
+    model_config = _ALIAS_CFG
 
 
 class TradeUpdate(BaseModel):
@@ -73,7 +76,7 @@ class TradeUpdate(BaseModel):
     tax: float | None = None
     memo: str | None = None
 
-    model_config = {"populate_by_name": True, "ser_json_by_alias": True}
+    model_config = _ALIAS_CFG
 
 
 class TradeOut(BaseModel):
@@ -88,7 +91,7 @@ class TradeOut(BaseModel):
     tax: float | None = None
     memo: str | None = None
 
-    model_config = {"from_attributes": True, "populate_by_name": True, "ser_json_by_alias": True}
+    model_config = _ATTR_ALIAS_CFG
 
 
 class SnapshotOut(BaseModel):
@@ -98,4 +101,4 @@ class SnapshotOut(BaseModel):
     valuation_amount: float | None = Field(None, alias="valuationAmount")
     unrealized_pnl: float | None = Field(None, alias="unrealizedPnL")
 
-    model_config = {"populate_by_name": True, "ser_json_by_alias": True}
+    model_config = _ALIAS_CFG

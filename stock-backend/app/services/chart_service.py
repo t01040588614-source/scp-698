@@ -14,15 +14,27 @@ from app.services.yahoo_history import (
     is_intraday_interval,
 )
 
+
+def _iter_index_to_datetime(ts: object) -> datetime:
+    if isinstance(ts, datetime):
+        return ts
+    to_pydatetime = getattr(ts, "to_pydatetime", None)
+    if callable(to_pydatetime):
+        dt = to_pydatetime()
+        if isinstance(dt, datetime):
+            return dt
+    return datetime.fromisoformat(str(ts))
+
 FDR_PERIOD_DAYS: dict[str, int] = {
     "1d": 10,
     "1w": 21,
     "1m": 60,
-    "3m": 140,
-    "6m": 280,
-    "1y": 420,
-    "5y": 365 * 6 + 30,
-    "max": 365 * 25,
+    "3m": 160,
+    "5mo": 260,
+    "6m": 320,
+    "1y": 480,
+    "5y": 365 * 6 + 60,
+    "max": 365 * 30,
 }
 
 INDEX_DAILY_FALLBACK: dict[str, str] = {
@@ -30,6 +42,7 @@ INDEX_DAILY_FALLBACK: dict[str, str] = {
     "1w": "1mo",
     "1m": "6mo",
     "3m": "1y",
+    "5mo": "2y",
     "6m": "2y",
     "1y": "5y",
     "5y": "5y",
@@ -64,48 +77,52 @@ FDR_INDEX_SYMBOL: dict[str, str] = {
     "cotton": "CT=F",
 }
 
-# 차트에 표시할 봉 개수 (일봉 기준)
+# 차트에 표시할 봉 개수 (일봉 기준) — PERIOD_LOOKBACK_DAYS·거래일 근사와 맞춤
 PERIOD_BAR_CAP: dict[str, int] = {
     "1d": 5,
     "1d_intraday": 120,
     "1w": 7,
     "1w_intraday": 320,
     "1m": 31,
-    "3m": 65,
-    "6m": 128,
-    "1y": 252,
-    "5y": 270,
-    "max": 800,
+    "3m": 98,
+    "5mo": 120,
+    "6m": 145,
+    "1y": 270,
+    "5y": 1320,
+    "max": 3200,
 }
 
 FDR_PERIOD_DAYS_INDEX: dict[str, int] = {
     "1d": 14,
     "1w": 21,
     "1m": 90,
-    "3m": 200,
-    "6m": 400,
-    "1y": 800,
-    "5y": 365 * 6,
-    "max": 365 * 15,
+    "3m": 220,
+    "5mo": 360,
+    "6m": 450,
+    "1y": 900,
+    "5y": 365 * 7,
+    "max": 365 * 20,
 }
 
 PERIOD_CONFIG: dict[str, tuple[str, str]] = {
     "1d": ("1d", "5m"),
     "1w": ("1mo", "1d"),
     "1m": ("6mo", "1d"),
-    "3m": ("1y", "1d"),
+    "3m": ("2y", "1d"),
+    "5mo": ("2y", "1d"),
     "6m": ("2y", "1d"),
     "1y": ("5y", "1d"),
-    "5y": ("5y", "1wk"),
-    "max": ("max", "1mo"),
+    "5y": ("5y", "1d"),
+    "max": ("max", "1d"),
 }
 
-CHART_HUB_PERIODS: tuple[str, ...] = ("1d", "1w", "1m", "3m", "6m", "1y", "5y", "max")
+CHART_HUB_PERIODS: tuple[str, ...] = ("1d", "1w", "1m", "3m", "5mo", "6m", "1y", "5y", "max")
 
 PERIOD_LOOKBACK_DAYS: dict[str, int | None] = {
     "1w": 7,
     "1m": 31,
     "3m": 92,
+    "5mo": 153,
     "6m": 183,
     "1y": 365,
     "5y": 365 * 5,
@@ -116,12 +133,8 @@ PERIOD_LOOKBACK_DAYS: dict[str, int | None] = {
 class ChartService:
     def __init__(self) -> None:
         self._executor = ThreadPoolExecutor(max_workers=2)
-        self._index_history_cache: dict[
-            tuple[str, str], tuple[datetime, list[dict], str, str]
-        ] = {}
-        self._period_returns_cache: dict[
-            tuple[str, str], tuple[datetime, dict]
-        ] = {}
+        self._index_history_cache: dict[tuple[str, str], tuple[datetime, list[dict], str, str]] = {}
+        self._period_returns_cache: dict[tuple[str, str], tuple[datetime, dict]] = {}
 
     def _resolve_yahoo_ticker(self, symbol: str, market: str) -> str:
         if market == "index":
@@ -139,9 +152,16 @@ class ChartService:
     def _format_label(self, dt: datetime, period: str) -> str:
         if period == "1d":
             return dt.strftime("%H:%M")
-        if period in ("1w", "1m", "3m", "6m", "1y"):
+        if period in ("1w", "1m", "3m", "5mo", "6m", "1y"):
             return dt.strftime("%m/%d")
+        if period in ("5y", "max"):
+            return dt.strftime("%Y-%m")
         return dt.strftime("%Y-%m")
+
+    def _history_label_period(self, period: str) -> str:
+        if period in ("1d", "1w", "1m", "3m", "5mo", "6m", "1y", "5y", "max"):
+            return period
+        return "6m"
 
     def _num(self, value, default: float) -> float:
         try:
@@ -181,11 +201,8 @@ class ChartService:
 
         points: list[dict] = []
         for ts, row in df.iterrows():
-            if hasattr(ts, "to_pydatetime"):
-                dt = ts.to_pydatetime()
-            else:
-                dt = datetime.fromisoformat(str(ts))
-            point = self._row_to_point(dt, row, period if period in ("1d", "1w", "1m") else "6m")
+            dt = _iter_index_to_datetime(ts)
+            point = self._row_to_point(dt, row, self._history_label_period(period))
             if point:
                 points.append(point)
         points = self._trim_points_for_period(points, period, "1d")
@@ -236,10 +253,8 @@ class ChartService:
             return trimmed if len(trimmed) >= 3 else points[-PERIOD_BAR_CAP["1w_intraday"] :]
         return points
 
-    def _dataframe_to_points(
-        self, df, period: str, interval: str
-    ) -> list[dict]:
-        label_period = period if period in ("1d", "1w", "1m", "3m", "6m", "1y") else "6m"
+    def _dataframe_to_points(self, df, period: str, interval: str) -> list[dict]:
+        label_period = self._history_label_period(period)
         if is_intraday_interval(interval) and period == "1d":
             label_period = "1d"
         points: list[dict] = []
@@ -261,14 +276,19 @@ class ChartService:
         if not row:
             return None
         cached_at, points, interval, source = row
-        if prefer_intraday and period in ("1d", "1w") and not is_intraday_interval(interval):
+        # 1주+에 캐시된 분봉(옛 15m cliff)은 버리고 일봉으로 재조회
+        if period != "1d" and is_intraday_interval(interval):
+            return None
+        if prefer_intraday and period == "1d" and not is_intraday_interval(interval):
             return None
         age = (datetime.now() - cached_at).total_seconds()
         if is_intraday_interval(interval):
-            ttl = 45 if period == "1d" else 90
+            ttl = 45
         else:
-            ttl = 120 if period in ("1d", "1w") else 600
+            ttl = 90 if period == "1d" else (120 if period == "1w" else 600)
         if age > ttl:
+            return None
+        if not points:
             return None
         return list(points), interval, source
 
@@ -295,13 +315,10 @@ class ChartService:
         if df is None or df.empty:
             return [], "1d"
 
-        chart_period = period if period in ("1d", "1w", "1m", "3m") else "6m"
+        chart_period = self._history_label_period(period)
         points: list[dict] = []
         for ts, row in df.iterrows():
-            if hasattr(ts, "to_pydatetime"):
-                dt = ts.to_pydatetime()
-            else:
-                dt = datetime.fromisoformat(str(ts))
+            dt = _iter_index_to_datetime(ts)
             point = self._row_to_point(dt, row, chart_period)
             if point:
                 points.append(point)
@@ -316,7 +333,7 @@ class ChartService:
         df, used_iv = fetch_history_dataframe(yahoo_ticker, yf_period, "1d")
         if df.empty:
             return [], "1d"
-        chart_period = period if period in ("1d", "1w", "1m", "3m") else "6m"
+        chart_period = self._history_label_period(period)
         points = self._dataframe_to_points(df, chart_period, used_iv)
         points = self._trim_points_for_period(points, period, "1d")
         return points, "1d"
@@ -328,15 +345,19 @@ class ChartService:
         interval_override: str | None = None,
     ) -> tuple[list[dict], str]:
         yf_period, interval = PERIOD_CONFIG.get(period, PERIOD_CONFIG["1m"])
-        if interval_override and period in ("1d", "1w"):
+        if interval_override and period == "1d":
             iv = interval_override
             if iv == "1h":
                 iv = "60m"
             interval = iv
             if iv == "1d":
-                yf_period = "1mo" if period == "1d" else PERIOD_CONFIG.get(period, ("1mo", "1d"))[0]
+                yf_period = "1mo"
+        # 1주+는 일봉만 (15m 폴백 금지 — 사이드바 cliff 그래프 원인)
+        if period != "1d":
+            interval = "1d"
+            yf_period = PERIOD_CONFIG.get(period, ("1mo", "1d"))[0]
         extra: list[tuple[str, str]] = []
-        if period in ("1d", "1w"):
+        if period == "1d":
             extra = intraday_fallback_attempts(period, interval)
         df, used_iv = fetch_history_dataframe(
             yahoo_ticker, yf_period, interval, extra_attempts=extra
@@ -365,8 +386,9 @@ class ChartService:
         step_map = {
             "1d": 48,
             "1w": 35,
-            "1m": 22,
+            "1m": 31,
             "3m": 66,
+            "5mo": 110,
             "6m": 130,
             "1y": 260,
             "5y": 520,
@@ -393,7 +415,7 @@ class ChartService:
             elif period == "1w":
                 dt = end - timedelta(days=(steps - 1 - i))
                 label = dt.strftime("%m/%d")
-            elif period in ("1m", "3m"):
+            elif period in ("1m", "3m", "5mo"):
                 dt = end - timedelta(days=(steps - 1 - i))
                 label = dt.strftime("%m/%d")
             elif period in ("6m", "1y", "5y", "max"):
@@ -422,10 +444,19 @@ class ChartService:
         stock = market_data.get_by_symbol(symbol)
         base = float((stock or {}).get("price") or 100)
         steps = {
-            "1d": 48, "1w": 35, "1m": 126, "3m": 66, "6m": 126, "1y": 252, "5y": 260, "max": 300,
+            "1d": 48,
+            "1w": 7,
+            "1m": 31,
+            "3m": 66,
+            "5mo": 110,
+            "6m": 126,
+            "1y": 252,
+            "5y": 260,
+            "max": 300,
         }.get(period, 30)
         points: list[dict] = []
         prev_close = base
+        end = datetime.now()
         for i in range(steps):
             t = i / max(steps - 1, 1)
             wave = math.sin(t * math.pi * 4) * base * 0.025
@@ -437,16 +468,21 @@ class ChartService:
             volume = int(random.uniform(0.4, 1.6) * 1_500_000)
             if period == "1d":
                 label = f"{9 + i // 4:02d}:{(i % 4) * 15:02d}"
-            elif period == "1m":
-                label = f"{9 + (i % 8):02d}:{(i * 45) % 60:02d}"
-            elif period in ("1w", "3m"):
+                ts = None
+            elif period in ("1w", "1m"):
+                label = f"{i + 1}일"
+                dt = end - timedelta(days=(steps - 1 - i))
+                ts = datetime.combine(dt.date(), datetime.min.time()).isoformat()
+            elif period in ("3m",):
                 label = f"{i + 1:02d}일"
+                ts = None
             else:
                 label = f"W{i + 1}"
+                ts = None
             points.append(
                 {
                     "time": label,
-                    "timestamp": None,
+                    "timestamp": ts,
                     "open": open_p,
                     "high": high,
                     "low": low,
@@ -489,14 +525,14 @@ class ChartService:
         for p in points:
             o = float(p["open"]) * ratio
             h = float(p["high"]) * ratio
-            l = float(p["low"]) * ratio
+            low = float(p["low"]) * ratio
             c = float(p["close"]) * ratio
             anchored.append(
                 {
                     **p,
                     "open": round(o, 2),
                     "high": round(h, 2),
-                    "low": round(l, 2),
+                    "low": round(low, 2),
                     "close": round(c, 2),
                     "value": round(c, 2),
                 }
@@ -552,11 +588,28 @@ class ChartService:
 
         prefer_intraday = market == "index" and period == "1d"
         if market == "index":
-            cached = self._cache_get_index_history(
-                symbol, period, prefer_intraday=prefer_intraday
-            )
+            cached = self._cache_get_index_history(symbol, period, prefer_intraday=prefer_intraday)
             if cached:
                 points, interval, source = cached
+
+        # 한국 지수 1주+: FDR 일봉 우선 (Yahoo 분봉/429보다 안정, 실시간 종가 패치와 맞음)
+        if (
+            not points
+            and market == "index"
+            and period != "1d"
+            and symbol in FDR_INDEX_SYMBOL
+        ):
+            try:
+                fdr_pts, fdr_iv = await loop.run_in_executor(
+                    self._executor,
+                    self._fetch_index_fdr_history_sync,
+                    symbol,
+                    period,
+                )
+                if len(fdr_pts) >= 2:
+                    points, interval, source = fdr_pts, fdr_iv, "fdr"
+            except Exception:
+                pass
 
         if not points:
             try:
@@ -565,7 +618,7 @@ class ChartService:
                     self._fetch_history_sync,
                     yahoo_ticker,
                     period,
-                    interval_override,
+                    interval_override if period == "1d" else None,
                 )
             except Exception:
                 points = []
@@ -574,10 +627,11 @@ class ChartService:
             "1w": 5,
             "1m": 16,
             "3m": 45,
+            "5mo": 75,
             "6m": 90,
             "1y": 150,
-            "5y": 120,
-            "max": 120,
+            "5y": 400,
+            "max": 400,
         }
         need_bars = min_period_bars.get(period)
         if points and need_bars and len(points) < need_bars:
@@ -589,9 +643,7 @@ class ChartService:
                     yahoo_ticker,
                     period,
                 )
-                if len(alt_pts) >= need_bars or (
-                    market == "index" and len(alt_pts) > len(points)
-                ):
+                if len(alt_pts) >= need_bars or (market == "index" and len(alt_pts) > len(points)):
                     points, interval, source = alt_pts, alt_iv, "yahoo"
             if market == "index" and len(points) < need_bars:
                 try:
@@ -633,6 +685,21 @@ class ChartService:
                 except Exception:
                     pass
 
+        if market == "us" and points and period not in ("1d", "1w", "1m"):
+            target = PERIOD_BAR_CAP.get(period, 80)
+            if len(points) < int(target * 0.55):
+                try:
+                    alt_pts, alt_iv = await loop.run_in_executor(
+                        self._executor,
+                        self._fetch_index_daily_fallback_sync,
+                        yahoo_ticker,
+                        period,
+                    )
+                    if len(alt_pts) > len(points):
+                        points, interval, source = alt_pts, alt_iv, "yahoo"
+                except Exception:
+                    pass
+
         if not points and market == "index":
             try:
                 points, interval = await loop.run_in_executor(
@@ -656,9 +723,6 @@ class ChartService:
                     source = "fdr"
             except Exception:
                 points = []
-
-        if points and market == "index" and source in ("yahoo", "fdr"):
-            self._cache_put_index_history(symbol, period, points, interval, source)
 
         if not points and market == "korea":
             try:
@@ -723,6 +787,10 @@ class ChartService:
 
         if period in ("1w", "1m") and points:
             points = self._finalize_short_period_points(points, period)
+            interval = "1d"
+
+        if market == "index" and points and source in ("yahoo", "fdr"):
+            self._cache_put_index_history(symbol, period, points, interval, source)
 
         if market == "index" and points and source in ("yahoo", "fdr"):
             live_px = 0.0
@@ -740,7 +808,8 @@ class ChartService:
             stock = market_data.get_by_symbol(symbol)
             live_px = float((stock or {}).get("price") or 0)
             if live_px > 0:
-                points = self._anchor_series_to_price(points, live_px)
+                # 마지막 봉만 헤더·WS 시세에 맞춤 — 전 구간 스케일(anchor)은 Yahoo/KRX 괴리 시 차트 왜곡
+                points = self._patch_last_close(points, live_px)
 
         return {
             "symbol": symbol,

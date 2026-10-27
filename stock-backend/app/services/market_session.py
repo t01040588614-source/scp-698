@@ -94,24 +94,59 @@ def is_any_regular_session() -> bool:
     return is_korea_regular_session() or is_us_regular_session()
 
 
-def refresh_profile() -> dict[str, int]:
+def _apply_yahoo_throttle_profile(profile: dict[str, int | float]) -> dict[str, int | float]:
+    """Yahoo 429·쿨다운 시 갱신 주기 완화 (market_data 순환 import 방지 — bool만 전달)."""
+    out = dict(profile)
+    out["full_interval"] = max(int(out["full_interval"]), 8)
+    out["fast_interval"] = max(int(out["fast_interval"]), 2)
+    out["index_interval"] = max(int(out["index_interval"]), 15)
+    out["ensure_fresh_sec"] = max(int(out["ensure_fresh_sec"]), 12)
+    out["stale_push_sec"] = max(int(out["stale_push_sec"]), 6)
+    out["ws_broadcast_interval"] = max(float(out["ws_broadcast_interval"]), 0.55)
+    out["symbol_refresh_gap"] = max(float(out["symbol_refresh_gap"]), 1.2)
+    out["fast_batch"] = min(int(out["fast_batch"]), 48)
+    return out
+
+
+def refresh_profile(*, yahoo_throttled: bool = False) -> dict[str, int | float]:
     if is_any_regular_session():
-        return {
-            "full_interval": 4,
+        profile: dict[str, int | float] = {
+            "full_interval": 3,
             "fast_interval": 1,
-            "fast_batch": 80,
-            "ensure_fresh_sec": 3,
-            "stale_push_sec": 2,
-            "index_interval": 8,
+            "fast_batch": 256,
+            "ensure_fresh_sec": 2,
+            "stale_push_sec": 1,
+            "index_interval": 5,
+            "ws_broadcast_interval": 0.35,
+            "symbol_refresh_gap": 0.28,
         }
-    return {
-        "full_interval": 10,
-        "fast_interval": 4,
-        "fast_batch": 24,
-        "ensure_fresh_sec": 18,
-        "stale_push_sec": 12,
-        "index_interval": 25,
-    }
+    else:
+        profile = {
+            "full_interval": 10,
+            "fast_interval": 4,
+            "fast_batch": 24,
+            "ensure_fresh_sec": 18,
+            "stale_push_sec": 12,
+            "index_interval": 25,
+            "ws_broadcast_interval": 1.0,
+            "symbol_refresh_gap": 3.0,
+        }
+
+    from app.core.config import settings
+
+    if settings.MARKET_REFRESH_FULL_SEC is not None:
+        profile["full_interval"] = max(1, int(settings.MARKET_REFRESH_FULL_SEC))
+    if settings.MARKET_REFRESH_FAST_SEC is not None:
+        profile["fast_interval"] = max(1, int(settings.MARKET_REFRESH_FAST_SEC))
+    if settings.MARKET_REFRESH_INDEX_SEC is not None:
+        profile["index_interval"] = max(1, int(settings.MARKET_REFRESH_INDEX_SEC))
+    if settings.MARKET_WS_BROADCAST_SEC is not None:
+        profile["ws_broadcast_interval"] = max(0.2, float(settings.MARKET_WS_BROADCAST_SEC))
+
+    if yahoo_throttled:
+        profile = _apply_yahoo_throttle_profile(profile)
+
+    return profile
 
 
 def _session_label(session: MarketSessionKind) -> str:
@@ -160,21 +195,22 @@ def _region_detail(exchange: str, session: MarketSessionKind, now: datetime) -> 
 
 def _session_tooltip(exchange: str, session: MarketSessionKind, holiday_name: str | None) -> str:
     market = "Korea" if exchange == "kr" else "US"
-    schedule_kr = "Regular 09:00–15:30 KST · Pre 08:00–09:00 · After 15:30–16:00 · closed weekends & holidays"
-    schedule_us = "Regular 09:30–16:00 ET · Pre 04:00–09:30 · After 16:00–20:00 · closed weekends & holidays"
+    schedule_kr = (
+        "Regular 09:00–15:30 KST · Pre 08:00–09:00 · After 15:30–16:00 · closed weekends & holidays"
+    )
+    schedule_us = (
+        "Regular 09:30–16:00 ET · Pre 04:00–09:30 · After 16:00–20:00 · closed weekends & holidays"
+    )
     schedule = schedule_kr if exchange == "kr" else schedule_us
     if holiday_name:
         return f"{market} exchange holiday ({holiday_name}). {schedule}"
     if session == "open":
         return f"{market} regular session is open. {schedule}"
     if session == "pre":
-        return (
-            f"{'Korea pre-market' if exchange == 'kr' else 'US pre-market'} session. {schedule}"
-        )
+        return f"{'Korea pre-market' if exchange == 'kr' else 'US pre-market'} session. {schedule}"
     if session == "after":
-        return (
-            f"{'Korea' if exchange == 'kr' else 'US'} regular session closed; after-hours. {schedule}"
-        )
+        who = "Korea" if exchange == "kr" else "US"
+        return f"{who} regular session closed; after-hours. {schedule}"
     return f"{market} market is closed. {schedule}"
 
 

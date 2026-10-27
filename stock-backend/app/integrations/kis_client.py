@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 _token: str | None = None
 _token_expires: datetime | None = None
 _token_lock = asyncio.Lock()
+_last_price_fetch_ms: float | None = None
+_last_price_fetch_at: datetime | None = None
+_last_price_batch_count: int = 0
 
 
 def _base_url() -> str:
@@ -50,9 +53,9 @@ async def _fetch_token(client: httpx.AsyncClient) -> str:
         try:
             _token_expires = datetime.fromisoformat(exp.replace("Z", "+00:00"))
         except ValueError:
-            _token_expires = datetime.now(timezone.utc) + timedelta(hours=12)
+            _token_expires = datetime.now(UTC) + timedelta(hours=12)
     else:
-        _token_expires = datetime.now(timezone.utc) + timedelta(hours=12)
+        _token_expires = datetime.now(UTC) + timedelta(hours=12)
     return access
 
 
@@ -61,7 +64,7 @@ async def get_access_token() -> str:
     if not is_configured():
         raise RuntimeError("KIS keys not configured")
     async with _token_lock:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if _token and _token_expires and _token_expires > now + timedelta(minutes=2):
             return _token
         async with httpx.AsyncClient() as client:
@@ -75,8 +78,7 @@ def invalidate_token() -> None:
 
 
 def _tr_id_price() -> str:
-    mock = get_key("KIS_USE_MOCK").lower() in ("1", "true", "yes")
-    return "FHKST01010100" if not mock else "FHKST01010100"
+    return "FHKST01010100"
 
 
 async def inquire_price(symbol: str) -> dict | None:
@@ -252,7 +254,109 @@ async def verify_credentials(
     }
 
 
+def fetch_stats() -> dict:
+    return {
+        "configured": is_configured(),
+        "last_fetch_ms": _last_price_fetch_ms,
+        "last_fetch_at": _last_price_fetch_at.isoformat() if _last_price_fetch_at else None,
+        "last_batch_count": _last_price_batch_count,
+    }
+
+
+async def inquire_account_snapshot(
+    app_key: str,
+    app_secret: str,
+    *,
+    account_no: str,
+    account_product_code: str = "01",
+    use_mock: bool = False,
+) -> dict:
+    """계좌 예수금·보유 종목 스냅샷 (사용자 저장 키)."""
+    base = _base_url_for_mock(use_mock)
+    cano = account_no.strip().replace("-", "")
+    if len(cano) < 8:
+        raise ValueError("계좌번호 8자리 이상 필요")
+    cano8 = cano[:8]
+    prdt = (account_product_code or "01").strip()[:2]
+    tr_id = "VTTC8434R" if use_mock else "TTTC8434R"
+    url = f"{base}/uapi/domestic-stock/v1/trading/inquire-balance"
+    holdings: list[dict] = []
+    cash_balance: float | None = None
+
+    async with httpx.AsyncClient() as client:
+        token = await _fetch_token_with_keys(client, app_key, app_secret, use_mock)
+        headers = {
+            "authorization": f"Bearer {token}",
+            "appkey": app_key,
+            "appsecret": app_secret,
+            "tr_id": tr_id,
+            "custtype": "P",
+        }
+        params = {
+            "CANO": cano8,
+            "ACNT_PRDT_CD": prdt,
+            "AFHR_FLPR_YN": "N",
+            "OFL_YN": "",
+            "INQR_DVSN": "02",
+            "UNPR_DVSN": "01",
+            "FUND_STTL_ICLD_YN": "N",
+            "FNCG_AMT_AUTO_RDPT_YN": "N",
+            "PRCS_DVSN": "01",
+            "CTX_AREA_FK100": "",
+            "CTX_AREA_NK100": "",
+        }
+        resp = await client.get(url, headers=headers, params=params, timeout=25.0)
+        if resp.status_code != 200:
+            raise RuntimeError(f"KIS balance HTTP {resp.status_code}")
+        body = resp.json()
+        if body.get("rt_cd") not in (None, "0", 0):
+            raise RuntimeError(f"KIS balance rt_cd={body.get('rt_cd')} msg={body.get('msg1')}")
+        out1 = body.get("output1") or []
+        out2 = body.get("output2") or []
+        if isinstance(out2, list) and out2:
+            try:
+                cash_balance = float(out2[0].get("dnca_tot_amt") or 0)
+            except (TypeError, ValueError):
+                cash_balance = None
+        if isinstance(out1, list):
+            for row in out1:
+                if not isinstance(row, dict):
+                    continue
+                sym = str(row.get("pdno") or "").strip().zfill(6)
+                if not sym or sym == "000000":
+                    continue
+                try:
+                    qty = int(float(row.get("hldg_qty") or 0))
+                    avg = float(row.get("pchs_avg_pric") or 0)
+                    eval_amt = float(row.get("evlu_amt") or 0)
+                except (TypeError, ValueError):
+                    continue
+                if qty <= 0:
+                    continue
+                holdings.append(
+                    {
+                        "symbol": sym,
+                        "name": str(row.get("prdt_name") or sym),
+                        "quantity": qty,
+                        "avgPrice": avg,
+                        "evalAmount": eval_amt,
+                    }
+                )
+
+    return {
+        "accountMasked": _mask_account(cano8 + prdt),
+        "cashBalance": cash_balance,
+        "holdings": holdings,
+        "holdingsCount": len(holdings),
+        "syncedAt": datetime.now(UTC).isoformat(),
+    }
+
+
 async def inquire_prices(symbols: list[str], concurrency: int = 8) -> list[dict]:
+    global _last_price_fetch_ms, _last_price_fetch_at, _last_price_batch_count
+    import time as _time
+
+    started = _time.perf_counter()
     sem = asyncio.Semaphore(concurrency)
 
     async def one(sym: str) -> dict | None:
@@ -264,4 +368,8 @@ async def inquire_prices(symbols: list[str], concurrency: int = 8) -> list[dict]
                 return None
 
     results = await asyncio.gather(*(one(s) for s in symbols))
-    return [r for r in results if r]
+    out = [r for r in results if r]
+    _last_price_fetch_ms = round((_time.perf_counter() - started) * 1000, 1)
+    _last_price_fetch_at = datetime.now(UTC)
+    _last_price_batch_count = len(symbols)
+    return out

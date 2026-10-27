@@ -87,12 +87,37 @@ def _patch_from_ticker(
                 vol = int(info.get("regularMarketVolume") or info.get("volume") or 0)
             except (TypeError, ValueError):
                 vol = 0
+        market_cap = 0.0
+        pe_ratio = 0.0
+        try:
+            mcap_raw = getattr(fi, "market_cap", None)
+            if mcap_raw is not None:
+                market_cap = float(mcap_raw)
+        except (TypeError, ValueError):
+            market_cap = 0.0
+        eps = 0.0
+        if allow_info_fallback and (market_cap <= 0 or pe_ratio <= 0):
+            try:
+                info = getattr(ticker, "info", None) or {}
+                if market_cap <= 0:
+                    market_cap = float(info.get("marketCap") or 0)
+                pe_raw = info.get("trailingPE") or info.get("forwardPE")
+                if pe_raw is not None:
+                    pe_ratio = float(pe_raw)
+                eps_raw = info.get("trailingEps") or info.get("epsTrailingTwelveMonths")
+                if eps_raw is not None:
+                    eps = float(eps_raw)
+            except (TypeError, ValueError):
+                pass
         return {
             "symbol": sym,
             "price": round(price, 4 if price < 50 and sym.endswith(("=X",)) else 2),
             "change": round(change, 4 if abs(change) < 10 else 2),
             "change_percent": round(pct, 2),
             "volume": vol,
+            "market_cap": round(market_cap, 2) if market_cap > 0 else 0.0,
+            "pe_ratio": round(pe_ratio, 2) if pe_ratio > 0 else 0.0,
+            "eps": round(eps, 4) if eps else 0.0,
             "high": round(price, 2),
             "low": round(price, 2),
             "open": round(price, 2),
@@ -218,7 +243,8 @@ def fetch_yahoo_live_batch(
                 t = bundle.tickers.get(yahoo)
                 if t is None:
                     continue
-                patch = _patch_from_ticker(t, sym, allow_info_fallback=False)
+                allow_fb = not (yahoo.startswith("^") or "=X" in yahoo)
+                patch = _patch_from_ticker(t, sym, allow_info_fallback=allow_fb)
                 if patch:
                     merged[sym] = patch
         except Exception as exc:

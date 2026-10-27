@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 from fastapi import HTTPException
@@ -49,7 +49,9 @@ class AccountsService:
 
     async def _get_account_for_owner(self, account_id: int, owner_id: str) -> UserAccount:
         result = await self.db.execute(
-            select(UserAccount).where(UserAccount.id == account_id, UserAccount.owner_id == owner_id)
+            select(UserAccount).where(
+                UserAccount.id == account_id, UserAccount.owner_id == owner_id
+            )
         )
         account = result.scalar_one_or_none()
         if not account:
@@ -58,11 +60,15 @@ class AccountsService:
 
     async def list_accounts(self, owner_id: str) -> list[UserAccount]:
         result = await self.db.execute(
-            select(UserAccount).where(UserAccount.owner_id == owner_id).order_by(UserAccount.id.desc())
+            select(UserAccount)
+            .where(UserAccount.owner_id == owner_id)
+            .order_by(UserAccount.id.desc())
         )
         return list(result.scalars().all())
 
-    async def create_account(self, dto: AccountCreate, owner_id: str, user_id: int | None) -> UserAccount:
+    async def create_account(
+        self, dto: AccountCreate, owner_id: str, user_id: int | None
+    ) -> UserAccount:
         account = UserAccount(
             owner_id=owner_id,
             user_id=user_id,
@@ -137,7 +143,9 @@ class AccountsService:
         await self.db.flush()
         return out
 
-    async def list_trades(self, account_id: int, owner_id: str, limit: int = 50) -> list[dict[str, Any]]:
+    async def list_trades(
+        self, account_id: int, owner_id: str, limit: int = 50
+    ) -> list[dict[str, Any]]:
         await self._get_account_for_owner(account_id, owner_id)
         result = await self.db.execute(
             select(AccountTrade)
@@ -158,11 +166,13 @@ class AccountsService:
             raise HTTPException(status_code=404, detail="매매 내역을 찾을 수 없습니다")
         return _trade_to_out(trade)
 
-    async def create_trade(self, account_id: int, owner_id: str, dto: TradeCreate) -> dict[str, Any]:
+    async def create_trade(
+        self, account_id: int, owner_id: str, dto: TradeCreate
+    ) -> dict[str, Any]:
         account = await self._get_account_for_owner(account_id, owner_id)
         trade_date = datetime.fromisoformat(dto.trade_date.replace("Z", "+00:00"))
         if trade_date.tzinfo is None:
-            trade_date = trade_date.replace(tzinfo=timezone.utc)
+            trade_date = trade_date.replace(tzinfo=UTC)
         amount = dto.price * dto.quantity
         trade = AccountTrade(
             account_id=account.id,
@@ -212,7 +222,7 @@ class AccountsService:
         if dto.trade_date is not None:
             td = datetime.fromisoformat(dto.trade_date.replace("Z", "+00:00"))
             if td.tzinfo is None:
-                td = td.replace(tzinfo=timezone.utc)
+                td = td.replace(tzinfo=UTC)
             trade.trade_date = td
         if dto.price is not None:
             trade.price = dto.price
@@ -253,14 +263,15 @@ class AccountsService:
         if not row:
             raise HTTPException(status_code=404, detail="매매 내역을 찾을 수 없습니다")
         trade, account = row[0], row[1]
-        code, name = trade.stock_code, trade.stock_name
         await self.db.delete(trade)
         await self.db.flush()
         await self.recalculate_all(account)
         await self._upsert_snapshot(account)
         return {"ok": True}
 
-    async def recalculate_cash(self, account: UserAccount, trades: list[AccountTrade] | None = None) -> None:
+    async def recalculate_cash(
+        self, account: UserAccount, trades: list[AccountTrade] | None = None
+    ) -> None:
         if account.initial_cash_balance is None:
             account.initial_cash_balance = float(account.cash_balance or 0)
         cash = float(account.initial_cash_balance or 0)

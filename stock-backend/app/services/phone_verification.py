@@ -8,7 +8,12 @@ import secrets
 import time
 
 from app.core.config import settings
-from app.integrations.sms_client import SMSDeliveryError, build_verification_message, is_configured, send_sms
+from app.integrations.sms_client import (
+    SMSDeliveryError,
+    build_verification_message,
+    is_configured,
+    send_sms,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +75,7 @@ def send_verification_code(phone_raw: str) -> dict:
 
     _pending.pop(phone, None)
     raise ValueError(
-        "SMS 연동이 필요합니다. 상단 메뉴 도구 → API 키 연동에서 SMS(Aligo·NCP·Twilio)를 설정하거나 "
+        "SMS 연동이 필요합니다. 도구 → API 키 연동에서 SMS(Aligo·NCP·Twilio)를 설정하거나 "
         "관리자에게 SMS_DEMO_MODE=true 설정을 요청하세요."
     )
 

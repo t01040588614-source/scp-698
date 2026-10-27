@@ -50,17 +50,19 @@ async def stock_websocket(websocket: WebSocket):
                 if action == "subscribe":
                     sym_list = symbols if isinstance(symbols, list) else []
                     idx_list = index_ids if isinstance(index_ids, list) else []
+                    cached = market_data.get_all_symbols()
+                    merged_syms = sorted(set(sym_list) | set(cached))
                     ws_manager.update_subscriptions(
                         websocket,
-                        symbols=sym_list,
+                        symbols=merged_syms,
                         index_ids=idx_list,
                     )
-                    if sym_list:
-                        asyncio.create_task(market_data.refresh_symbols(sym_list))
+                    if merged_syms:
+                        asyncio.create_task(market_data.refresh_symbols(merged_syms))
                     await websocket.send_json(
                         {
                             "type": "subscribed",
-                            "symbols": sym_list,
+                            "symbols": merged_syms,
                             "indexIds": idx_list,
                         }
                     )

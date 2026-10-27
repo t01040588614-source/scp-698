@@ -1,6 +1,5 @@
 """DOCX ingest-quotes — 일봉 → kr_stock_quotes."""
 
-import asyncio
 import logging
 from datetime import date
 
@@ -16,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 async def ingest_quotes_for_code(session: AsyncSession, code: str, limit: int = 120) -> int:
     hist = await chart_service.get_history(code, "korea", "1y")
-    points = hist.points[-limit:] if hist.points else []
+    raw_points = hist.get("points") or []
+    points = raw_points[-limit:] if raw_points else []
     if not points:
         return 0
     rows = []

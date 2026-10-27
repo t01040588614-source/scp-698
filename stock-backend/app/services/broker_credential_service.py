@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +33,7 @@ class BrokerCredentialService:
                 account_no=account_no or None,
                 account_product_code=(body.account_product_code or "01").strip()[:8],
                 use_mock=mock_flag,
-                verified_at=datetime.now(timezone.utc),
+                verified_at=datetime.now(UTC),
             )
             self.db.add(row)
         else:
@@ -42,6 +42,6 @@ class BrokerCredentialService:
             row.account_no = account_no or None
             row.account_product_code = (body.account_product_code or "01").strip()[:8]
             row.use_mock = mock_flag
-            row.verified_at = datetime.now(timezone.utc)
+            row.verified_at = datetime.now(UTC)
         await self.db.flush()
         return row

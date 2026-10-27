@@ -1,5 +1,4 @@
-
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_password_hash
@@ -16,7 +15,10 @@ class UserService:
         return result.scalar_one_or_none()
 
     async def get_by_email(self, email: str) -> User | None:
-        result = await self.db.execute(select(User).where(User.email == email))
+        needle = (email or "").strip().lower()
+        if not needle:
+            return None
+        result = await self.db.execute(select(User).where(func.lower(User.email) == needle))
         return result.scalar_one_or_none()
 
     async def get_by_username(self, username: str) -> User | None:
@@ -29,7 +31,7 @@ class UserService:
 
     async def create(self, user_in: UserCreate, *, phone: str, terms_agreed_at) -> User:
         user = User(
-            email=user_in.email,
+            email=str(user_in.email).strip().lower(),
             username=user_in.username,
             hashed_password=get_password_hash(user_in.password),
             full_name=user_in.full_name,

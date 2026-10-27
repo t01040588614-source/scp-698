@@ -2,6 +2,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from app.data.asia_universe import IntlSymbolMeta
+from app.data.stock_display_names import resolve_display_name
 from app.services.stock_providers.base import StockProvider
 from app.services.stock_providers.yahoo_batch import fetch_yahoo_batch
 
@@ -25,7 +26,10 @@ class YahooIntlProvider(StockProvider):
         meta = self._meta_by_symbol.get(patch["symbol"], {})
         return {
             "symbol": patch["symbol"],
-            "name": meta.get("name") or patch["symbol"],
+            "name": resolve_display_name(
+                patch["symbol"],
+                current=meta.get("name"),
+            ),
             "exchange": meta.get("exchange", ""),
             "currency": meta.get("currency", "USD"),
             "sector": meta.get("sector") or "",

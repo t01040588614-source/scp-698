@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.data.korea_universe import KOREA_UNIVERSE
+from app.data.stock_display_names import resolve_display_name
 from app.integrations import kis_client
 from app.services.stock_providers.base import StockProvider
 
@@ -18,7 +19,11 @@ class KisKoreaProvider(StockProvider):
         meta = self._meta.get(row["symbol"], {})
         return {
             **row,
-            "name": meta.get("name") or row["symbol"],
+            "name": resolve_display_name(
+                row["symbol"],
+                stock_type="korea",
+                current=meta.get("name"),
+            ),
             "market": meta.get("market", "KOSPI"),
             "sector": meta.get("sector") or "",
             "market_cap": 0,

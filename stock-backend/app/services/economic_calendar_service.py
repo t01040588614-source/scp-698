@@ -12,7 +12,11 @@ import httpx
 
 from app.integrations import finnhub_client
 from app.services.kr_economic_calendar import fetch_bok_events, fetch_kostat_events
-from app.services.us_economic_calendar import fetch_bls_events, fetch_census_events, fetch_fomc_events
+from app.services.us_economic_calendar import (
+    fetch_bls_events,
+    fetch_census_events,
+    fetch_fomc_events,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -108,10 +112,7 @@ def _fmt_val(val: object) -> str:
 
 
 def _event_id(parts: dict) -> str:
-    raw = "|".join(
-        str(parts.get(k, ""))
-        for k in ("date", "time", "country", "event")
-    )
+    raw = "|".join(str(parts.get(k, "")) for k in ("date", "time", "country", "event"))
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
 
 
@@ -235,12 +236,7 @@ def _parse_finnhub_rows(rows: list[dict], start: date, end: date) -> list[dict]:
 def _parse_yahoo_rows(records: list[dict], start: date, end: date) -> list[dict]:
     out: list[dict] = []
     for row in records:
-        event = str(
-            row.get("Event")
-            or row.get("econ_release")
-            or row.get("event")
-            or ""
-        ).strip()
+        event = str(row.get("Event") or row.get("econ_release") or row.get("event") or "").strip()
         if not event:
             continue
         country = _country_norm(
@@ -362,7 +358,16 @@ async def _load_live(start: date, end: date) -> tuple[list[dict], list[str]]:
     bls_task = asyncio.to_thread(fetch_bls_events, start, end)
     fomc_task = asyncio.to_thread(fetch_fomc_events, start, end)
 
-    ff_raw, fh_raw, yh_raw, bok_raw, kostat_raw, census_raw, bls_raw, fomc_raw = await asyncio.gather(
+    (
+        ff_raw,
+        fh_raw,
+        yh_raw,
+        bok_raw,
+        kostat_raw,
+        census_raw,
+        bls_raw,
+        fomc_raw,
+    ) = await asyncio.gather(
         ff_task, fh_task, yh_task, bok_task, kostat_task, census_task, bls_task, fomc_task
     )
 
@@ -420,7 +425,6 @@ async def get_economic_calendar(
 ) -> dict:
     start, end = _parse_range(from_str, to_str)
     now = datetime.now(KST)
-    cache_key = f"{start.isoformat()}_{end.isoformat()}"
 
     async with _cache_lock:
         fetched_at = _cache.get("fetched_at")
@@ -433,7 +437,16 @@ async def get_economic_calendar(
             and (now - fetched_at).total_seconds() < _CACHE_TTL_SEC
             and _cache.get("events")
         ):
-            return _response(list(_cache["events"]), list(_cache.get("sources") or []), fetched_at, start, end, "cache")
+            cached_events = _cache["events"]
+            cached_sources = _cache.get("sources") or []
+            return _response(
+                list(cached_events) if isinstance(cached_events, list) else [],
+                list(cached_sources) if isinstance(cached_sources, list) else [],
+                fetched_at,
+                start,
+                end,
+                "cache",
+            )
 
     events, sources = await _load_live(start, end)
 

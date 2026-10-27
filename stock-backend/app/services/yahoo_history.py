@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Callable
+from collections.abc import Callable
 
 import pandas as pd
 import yfinance as yf
@@ -53,9 +53,7 @@ def _normalize_download_df(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
 
 def _fetch_ticker_history(ticker: str, period: str, interval: str) -> pd.DataFrame:
     _throttle()
-    hist = yf.Ticker(ticker).history(
-        period=period, interval=interval, auto_adjust=True, timeout=25
-    )
+    hist = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True, timeout=25)
     if hist is None or hist.empty:
         return pd.DataFrame()
     return hist
@@ -72,6 +70,8 @@ def _fetch_download_history(ticker: str, period: str, interval: str) -> pd.DataF
         auto_adjust=True,
         timeout=25,
     )
+    if raw is None:
+        return pd.DataFrame()
     return _normalize_download_df(raw, ticker)
 
 
@@ -118,17 +118,13 @@ def fetch_history_dataframe(
 
 
 def intraday_fallback_attempts(period: str, interval: str) -> list[tuple[str, str]]:
-    """1일·1주 — 분·시간봉 단계적 폴백."""
+    """1일(장중)만 분·시간봉 폴백. 1주 이상은 일봉만 — 15m cliff 차트 방지."""
     if period == "1d":
         return [
+            ("1d", "1m"),
+            ("1d", "2m"),
             ("1d", "5m"),
             ("5d", "5m"),
-            ("5d", "15m"),
-            ("5d", "30m"),
-            ("5d", "1h"),
-        ]
-    if period == "1w":
-        return [
             ("5d", "15m"),
             ("5d", "30m"),
             ("5d", "1h"),

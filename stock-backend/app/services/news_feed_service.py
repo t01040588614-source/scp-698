@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree as ET
 from zoneinfo import ZoneInfo
@@ -40,11 +40,31 @@ NEWS_CATEGORIES: tuple[str, ...] = ("시장", "경제", "기업", "미국")
 RSS_FEEDS: list[dict[str, str]] = [
     {"id": "hankyung-finance", "category": "시장", "url": "https://www.hankyung.com/feed/finance"},
     {"id": "hankyung-economy", "category": "경제", "url": "https://www.hankyung.com/feed/economy"},
-    {"id": "investing-kr-stock", "category": "시장", "url": "https://kr.investing.com/rss/news_25.rss"},
-    {"id": "investing-kr-econ", "category": "경제", "url": "https://kr.investing.com/rss/news_11.rss"},
-    {"id": "investing-kr-world", "category": "시장", "url": "https://kr.investing.com/rss/news_14.rss"},
-    {"id": "investing-kr-company", "category": "기업", "url": "https://kr.investing.com/rss/news_285.rss"},
-    {"id": "investing-kr-analysis", "category": "기업", "url": "https://kr.investing.com/rss/news_12.rss"},
+    {
+        "id": "investing-kr-stock",
+        "category": "시장",
+        "url": "https://kr.investing.com/rss/news_25.rss",
+    },
+    {
+        "id": "investing-kr-econ",
+        "category": "경제",
+        "url": "https://kr.investing.com/rss/news_11.rss",
+    },
+    {
+        "id": "investing-kr-world",
+        "category": "시장",
+        "url": "https://kr.investing.com/rss/news_14.rss",
+    },
+    {
+        "id": "investing-kr-company",
+        "category": "기업",
+        "url": "https://kr.investing.com/rss/news_285.rss",
+    },
+    {
+        "id": "investing-kr-analysis",
+        "category": "기업",
+        "url": "https://kr.investing.com/rss/news_12.rss",
+    },
     {"id": "investing-kr-all", "category": "시장", "url": "https://kr.investing.com/rss/news.rss"},
     {
         "id": "yahoo-sp500",
@@ -67,7 +87,11 @@ RSS_FEEDS: list[dict[str, str]] = [
         "url": "https://feeds.marketwatch.com/marketwatch/topstories/",
     },
     {"id": "investing-us", "category": "미국", "url": "https://www.investing.com/rss/news.rss"},
-    {"id": "investing-us-stock", "category": "미국", "url": "https://www.investing.com/rss/news_25.rss"},
+    {
+        "id": "investing-us-stock",
+        "category": "미국",
+        "url": "https://www.investing.com/rss/news_25.rss",
+    },
 ]
 
 NEWSAPI_CATEGORY_MAP = {
@@ -90,22 +114,22 @@ def _local_tag(tag: str) -> str:
 
 def _parse_pub_date(raw: str | None) -> datetime:
     if not raw or not str(raw).strip():
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
     text = str(raw).strip()
     try:
         dt = parsedate_to_datetime(text)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except (TypeError, ValueError):
         pass
     try:
         dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except ValueError:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
 
 def _normalize_title(title: str) -> str:
@@ -152,7 +176,7 @@ def _parse_rss_xml(body: bytes, *, default_category: str, feed_id: str) -> list[
                 "category": default_category,
                 "title": title,
                 "source": source.replace("news.google.com", "Google News"),
-                "published_at": pub.astimezone(timezone.utc).isoformat(),
+                "published_at": pub.astimezone(UTC).isoformat(),
                 "thumbnail": normalize_thumbnail_url(thumb) if thumb else PLACEHOLDER,
                 "url": link or None,
                 "feed_id": feed_id,
@@ -195,7 +219,9 @@ async def _fetch_newsapi_items() -> list[dict]:
     )
     out: list[dict] = []
     for (cat, _size, country), rows in zip(requests, chunks, strict=True):
-        label = NEWSAPI_CATEGORY_MAP.get((cat, country), NEWSAPI_CATEGORY_MAP.get((cat, None), "시장"))
+        label = NEWSAPI_CATEGORY_MAP.get(
+            (cat, country), NEWSAPI_CATEGORY_MAP.get((cat, None), "시장")
+        )
         suffix = f"{cat}-{country}" if country else cat
         for row in rows:
             out.append(
@@ -271,7 +297,9 @@ async def get_finance_news(*, force_refresh: bool = False) -> dict:
         ):
             items = _cache["items"]
             assert isinstance(items, list)
-            return _response_payload(items, fetched_at, _cache.get("sources") or [])
+            src = _cache.get("sources")
+            sources = list(src) if isinstance(src, list) else []
+            return _response_payload(items, fetched_at, sources)
 
     items, sources = await _collect_live_news()
     fetched_at = datetime.now(KST)
@@ -288,7 +316,8 @@ async def get_finance_news(*, force_refresh: bool = False) -> dict:
             fetched_at = prev if isinstance(prev, datetime) else fetched_at
             sources = _cache.get("sources") or sources
 
-    return _response_payload(items if isinstance(items, list) else [], fetched_at, sources)
+    src_list = list(sources) if isinstance(sources, list) else []
+    return _response_payload(items if isinstance(items, list) else [], fetched_at, src_list)
 
 
 def _response_payload(items: list[dict], fetched_at: datetime, sources: list) -> dict:

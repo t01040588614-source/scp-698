@@ -1,6 +1,8 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
+from app.data.seed_stocks import US_NAMES, US_SYMBOLS
+from app.data.stock_display_names import resolve_display_name
 from app.services.stock_providers.base import StockProvider
 from app.services.stock_providers.yahoo_batch import fetch_us_symbols
 
@@ -9,40 +11,25 @@ class YahooFinanceProvider(StockProvider):
     """Yahoo Finance 미국주식 — 일괄 다운로드"""
 
     def __init__(self):
-        self._symbols = [
-            "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA",
-            "BRK-B", "JPM", "V", "UNH", "XOM", "JNJ", "WMT", "MA", "PG", "HD",
-            "AVGO", "LLY", "COST", "MRK", "ABBV", "PEP", "KO", "AMD", "NFLX",
-            "CRM", "ORCL", "ADBE", "INTC", "QCOM", "TXN", "BAC", "DIS", "CSCO",
-        ]
+        self._symbols = list(US_SYMBOLS)
         self._executor = ThreadPoolExecutor(max_workers=2)
-        self._names = {
-            "AAPL": "Apple Inc.",
-            "MSFT": "Microsoft Corporation",
-            "GOOGL": "Alphabet Inc.",
-            "GOOG": "Alphabet Inc. (C)",
-            "AMZN": "Amazon.com, Inc.",
-            "NVDA": "NVIDIA Corporation",
-            "META": "Meta Platforms, Inc.",
-            "TSLA": "Tesla, Inc.",
-        }
 
     def _patch_to_stock(self, sym: str, patch: dict) -> dict:
         return {
             "symbol": sym,
-            "name": self._names.get(sym, sym),
+            "name": resolve_display_name(sym, stock_type="us", current=US_NAMES.get(sym)),
             "price": patch["price"],
             "change": patch["change"],
             "change_percent": patch["change_percent"],
             "volume": patch.get("volume", 0),
-            "market_cap": 0,
+            "market_cap": patch.get("market_cap", 0) or 0,
             "high": patch.get("high", patch["price"]),
             "low": patch.get("low", patch["price"]),
             "open": patch.get("open", patch["price"]),
             "previous_close": patch.get("previous_close", patch["price"]),
             "exchange": "NASDAQ",
             "currency": "USD",
-            "pe_ratio": 0.0,
+            "pe_ratio": patch.get("pe_ratio", 0) or 0.0,
             "eps": 0.0,
             "sector": "",
         }

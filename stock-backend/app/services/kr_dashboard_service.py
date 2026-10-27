@@ -132,7 +132,7 @@ class KrDashboardService:
 
         items.sort(key=sort_val, reverse=reverse)
         total = len(items)
-        page = items[dto.offset: dto.offset + dto.limit]
+        page = items[dto.offset : dto.offset + dto.limit]
         return {"stocks": page, "total": total}
 
     async def get_detail(self, code: str) -> dict[str, Any] | None:
@@ -194,7 +194,8 @@ class KrDashboardService:
             except Exception as exc:
                 logger.warning("Quotes DB read: %s", exc)
         hist = await chart_service.get_history(code, "korea", "1y")
-        points = hist.points[-limit:] if hist.points else []
+        raw_points = hist.get("points") or []
+        points = raw_points[-limit:] if raw_points else []
         return [
             {
                 "date": p.time[:10] if p.time else "",
@@ -310,7 +311,8 @@ class KrDashboardService:
         if user_id is not None:
             q = q.where(UserScreener.user_id == user_id)
         result = await self.db.execute(q)
-        return result.rowcount > 0
+        rowcount = getattr(result, "rowcount", 0) or 0
+        return rowcount > 0
 
 
 async def seed_kr_analytics(db: AsyncSession) -> None:

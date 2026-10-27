@@ -1,6 +1,5 @@
 """DOCX ingest-stocks — KOREA_UNIVERSE + live cache → kr_stocks."""
 
-import asyncio
 import logging
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
