@@ -135,7 +135,11 @@ def refresh_profile(*, yahoo_throttled: bool = False) -> dict[str, int | float]:
     from app.core.config import settings
 
     if settings.MARKET_REFRESH_FULL_SEC is not None:
-        profile["full_interval"] = max(1, int(settings.MARKET_REFRESH_FULL_SEC))
+        full = max(1, int(settings.MARKET_REFRESH_FULL_SEC))
+        profile["full_interval"] = full
+        # 요청·WebSocket이 설정 주기보다 자주 전체 갱신을 다시 걸지 않게 (저사양 서버 과부하 방지)
+        profile["ensure_fresh_sec"] = max(int(profile["ensure_fresh_sec"]), full)
+        profile["stale_push_sec"] = max(int(profile["stale_push_sec"]), full)
     if settings.MARKET_REFRESH_FAST_SEC is not None:
         profile["fast_interval"] = max(1, int(settings.MARKET_REFRESH_FAST_SEC))
     if settings.MARKET_REFRESH_INDEX_SEC is not None:
