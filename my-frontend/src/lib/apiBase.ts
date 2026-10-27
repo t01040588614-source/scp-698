@@ -3,6 +3,10 @@ function normalizeHttpOrigin(raw: string): string {
   const trimmed = raw.replace(/\/$/, "");
   if (!trimmed) return "";
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  // Render fromService.host 는 내부 이름(예: marketlens-api-h3h9)만 준다 → 공개 주소로 변환
+  if (/^[a-z0-9-]+$/i.test(trimmed) && trimmed !== "localhost") {
+    return `https://${trimmed}.onrender.com`;
+  }
   return `https://${trimmed}`;
 }
 
