@@ -103,8 +103,6 @@ class Settings(BaseSettings):
         raw = value.strip()
         if raw.startswith("postgres://"):
             raw = "postgresql+asyncpg://" + raw.removeprefix("postgres://")
-        if "render.com" in raw and "ssl=" not in raw:
-            raw += "&ssl=require" if "?" in raw else "?ssl=require"
         return raw
 
     @field_validator("CORS_ORIGINS", mode="before")

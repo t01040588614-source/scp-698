@@ -34,6 +34,10 @@ services:
         value: "^https://.*\\.onrender\\.com$"
       - key: CORS_ORIGINS
         value: '["http://localhost:3000","http://127.0.0.1:3000"]'
+      - key: DATABASE_POOL_SIZE
+        value: "5"
+      - key: DATABASE_MAX_OVERFLOW
+        value: "5"
 
   - type: web
     name: marketlens-web
@@ -50,6 +54,11 @@ services:
           name: marketlens-api
           property: host
       - key: NEXT_PUBLIC_WS_URL
+        fromService:
+          type: web
+          name: marketlens-api
+          property: host
+      - key: NEXT_PUBLIC_API_URL
         fromService:
           type: web
           name: marketlens-api

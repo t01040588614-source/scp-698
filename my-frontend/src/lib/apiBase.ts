@@ -1,8 +1,40 @@
+/** 호스트만 있을 때 https:// 붙이기 (Render STOCK_API_PROXY) */
+function normalizeHttpOrigin(raw: string): string {
+  const trimmed = raw.replace(/\/$/, "");
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+/** Render Blueprint: marketlens-web ↔ marketlens-api */
+function resolveRenderApiOrigin(pageHost: string): string | null {
+  if (!pageHost.endsWith(".onrender.com")) return null;
+
+  const wsEnv = process.env.NEXT_PUBLIC_WS_URL?.trim();
+  if (wsEnv) {
+    const hostOnly = wsEnv.replace(/^\/\//, "").split("/")[0];
+    if (hostOnly) return normalizeHttpOrigin(hostOnly);
+  }
+
+  const apiEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (apiEnv?.startsWith("http")) {
+    return apiEnv.replace(/\/api\/v1\/?$/, "");
+  }
+
+  if (pageHost.includes("-web")) {
+    return `https://${pageHost.replace("-web", "-api")}`;
+  }
+  return null;
+}
+
 /** SSR·서버 컴포넌트용 백엔드 직접 URL */
 export function getServerApiBaseUrl(): string {
   const proxy = process.env.STOCK_API_PROXY?.replace(/\/$/, "");
-  if (proxy?.startsWith("http")) {
-    return proxy.endsWith("/api/v1") ? proxy : `${proxy}/api/v1`;
+  if (proxy) {
+    const origin = normalizeHttpOrigin(proxy);
+    if (origin) {
+      return origin.endsWith("/api/v1") ? origin : `${origin}/api/v1`;
+    }
   }
   const env = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
   if (env?.startsWith("http")) {
@@ -12,11 +44,21 @@ export function getServerApiBaseUrl(): string {
 }
 
 /**
- * 브라우저: Next rewrites(`/api/v1` → 백엔드) — localhost/127.0.0.1 CORS 문제 없음
- * 서버: 127.0.0.1:8000 직접 호출
+ * 브라우저: 로컬은 Next rewrites(`/api/v1`). Render는 API 서비스 직접(CORS 허용).
  */
 export function getApiBaseUrl(): string {
   if (typeof window !== "undefined") {
+    const pageHost = window.location.hostname;
+    const localDev =
+      (pageHost === "localhost" || pageHost === "127.0.0.1") &&
+      (window.location.port === "3000" || window.location.port === "");
+
+    if (!localDev) {
+      const renderOrigin = resolveRenderApiOrigin(pageHost);
+      if (renderOrigin) {
+        return `${renderOrigin}/api/v1`;
+      }
+    }
     return "/api/v1";
   }
   return getServerApiBaseUrl();
@@ -42,7 +84,7 @@ function resolvePublicWsUrl(env: string, pageProto: "http:" | "https:"): string 
   }
 }
 
-/** WebSocket — Caddy 단일 포트: same-origin / Render: NEXT_PUBLIC_WS_URL → API 호스트 */
+/** WebSocket — Render: API 호스트 직접 / Caddy: same-origin */
 export function getWsStocksUrl(): string {
   const env = process.env.NEXT_PUBLIC_WS_URL?.trim();
   if (typeof window !== "undefined") {
@@ -51,6 +93,14 @@ export function getWsStocksUrl(): string {
       (pageHost === "localhost" || pageHost === "127.0.0.1") &&
       window.location.port === "3000";
     const pageProto = window.location.protocol as "http:" | "https:";
+
+    if (!localDev) {
+      const renderOrigin = resolveRenderApiOrigin(pageHost);
+      if (renderOrigin) {
+        const u = new URL(renderOrigin);
+        return `wss://${u.host}/api/v1/ws/stocks`;
+      }
+    }
 
     if (env && !localDev) {
       const crossHost = resolvePublicWsUrl(env, pageProto);
