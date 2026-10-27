@@ -101,8 +101,14 @@ class Settings(BaseSettings):
         if not isinstance(value, str):
             return str(value)
         raw = value.strip()
+        # Render/Heroku는 postgres:// 또는 postgresql:// 로 준다 → asyncpg 드라이버로 고정
         if raw.startswith("postgres://"):
             raw = "postgresql+asyncpg://" + raw.removeprefix("postgres://")
+        elif raw.startswith("postgresql://"):
+            raw = "postgresql+asyncpg://" + raw.removeprefix("postgresql://")
+        # asyncpg는 sslmode= 대신 ssl= 을 받는다
+        if raw.startswith("postgresql+asyncpg://"):
+            raw = raw.replace("sslmode=", "ssl=")
         return raw
 
     @field_validator("CORS_ORIGINS", mode="before")
