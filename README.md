@@ -1,6 +1,43 @@
-# MarketLens (주식 프로젝트)
+# MarketLens — 한국·미국 주식 대시보드
 
-한국·미국 시세, WebSocket 실시간(캐시 기반), 포트폴리오·관심목록을 제공하는 **MarketLens** 웹 앱입니다.
+한국·미국 지수와 종목 시세를 1초마다 갱신해 보여주고, 포트폴리오·관심목록·차트·AI 어시스턴트를 한 화면에서 쓰는 웹 앱입니다.
+
+**배포:** https://marketlens-web-bn64.onrender.com (무료 서버라 첫 접속 때 깨어나는 데 30초쯤 걸립니다)
+
+![MarketLens 시장 화면](docs/images/markets.jpg)
+
+## 한눈에 보기
+
+| 항목 | 내용 |
+| --- | --- |
+| 프론트엔드 | Next.js 14 (App Router), TypeScript, Tailwind CSS, React Query, Lightweight Charts |
+| 백엔드 | Python, FastAPI, WebSocket, SQLAlchemy(asyncpg) |
+| 데이터 | FinanceDataReader(한국), Yahoo Finance(미국), PostgreSQL |
+| AI | OpenAI·Gemini 어시스턴트 (앱 시세 스냅샷을 근거로 답변) |
+| 품질 | pytest 49개, Playwright e2e 5개(모바일 화면 점검 포함), ruff, pyright |
+| 배포 | Docker, Render Blueprint(웹·API·DB 3개 서비스) |
+
+## 핵심 기능
+
+- **실시간 시세:** 백엔드가 시세를 캐시에 모으고, WebSocket으로 1초마다 표·티커·지수에 밀어 줍니다.
+- **외부 API가 막혀도 동작:** Yahoo가 요청을 거절(429)하면 캐시나 기본 데이터로 화면을 유지하고, 나중에 다시 시도합니다.
+- **차트:** 종목·지수의 분·시간·일봉 차트. 분봉을 못 받으면 일봉으로 대체합니다.
+- **포트폴리오·관심목록:** 로그인한 사용자별로 저장 (JWT 인증).
+- **AI 어시스턴트:** 지금 보고 있는 화면과 종목 시세를 함께 넘겨서, 앱에 있는 숫자를 근거로 답하게 했습니다. 없는 수치는 지어내지 말고, 매수·매도 권유는 하지 않도록 지시했습니다.
+
+## 트러블슈팅: Render 무료 배포
+
+로컬에서는 잘 되던 앱이 Render에 올리자 세 군데에서 멈췄습니다.
+
+| 문제 | 원인 | 해결 |
+| --- | --- | --- |
+| API 서버가 켜지자마자 죽음 | Render의 DB 주소(`postgresql://`)를 SQLAlchemy가 설치되지 않은 psycopg 드라이버로 해석 | 주소를 `postgresql+asyncpg://`로 바꾸고 `sslmode=`를 asyncpg 형식 `ssl=`로 변환 ([b1cd9e4](https://github.com/t01040588614-source/marketlens/commit/b1cd9e4)) |
+| 브라우저에서 API·WebSocket 호출 실패 | Render가 넘겨준 주소가 내부 이름(`marketlens-api-h3h9`)이라 브라우저가 찾을 수 없음 | 점(.)이 없는 주소는 공개 주소 `https://<이름>.onrender.com`으로 바꾸도록 수정 ([e0760e3](https://github.com/t01040588614-source/marketlens/commit/e0760e3), [832f552](https://github.com/t01040588614-source/marketlens/commit/832f552)) |
+| 장중에 502 오류가 반복 | 무료 서버(CPU 0.1개)가 시세 계산 중 5초 헬스체크에 답하지 못해 Render가 강제로 재시작 | API 헬스체크를 빼고, 무료 서버용으로 시세 갱신 간격을 늘림 ([f034ab6](https://github.com/t01040588614-source/marketlens/commit/f034ab6), [c5f72ee](https://github.com/t01040588614-source/marketlens/commit/c5f72ee)) |
+
+---
+
+## 실행·개발 안내
 
 ## 빠른 실행
 
